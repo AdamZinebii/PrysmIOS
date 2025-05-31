@@ -68,11 +68,11 @@ class ThemeManager: ObservableObject {
         if let customTheme = customColorTheme {
             return customTheme.gradientColors
         }
-        // Default gradient colors (Deep Ocean theme)
+        // Default gradient colors (Violet theme)
         return [
-            Color(red: 0.0, green: 0.1, blue: 0.3),
-            Color(red: 0.1, green: 0.2, blue: 0.4),
-            Color(red: 0.0, green: 0.3, blue: 0.5)
+            Color(red: 0.3, green: 0.15, blue: 0.5),
+            Color(red: 0.4, green: 0.2, blue: 0.7),
+            Color(red: 0.5, green: 0.25, blue: 0.8)
         ]
     }
     
@@ -80,7 +80,7 @@ class ThemeManager: ObservableObject {
         if let customTheme = customColorTheme {
             return customTheme.particleColor
         }
-        return Color(red: 0.3, green: 0.5, blue: 0.7)
+        return Color(red: 0.6, green: 0.4, blue: 0.9)
     }
     
     var dividerColor: Color {

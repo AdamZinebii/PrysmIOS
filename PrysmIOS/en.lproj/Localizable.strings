@@ -177,7 +177,7 @@
 "preferences.cancel" = "Cancel";
 
 // MARK: - Welcome and Basic Actions
-"welcome_to_prysm" = "Welcome to Prysm";
+"welcome_to_prysm" = "Welcome to Orel";
 "setup_language_country" = "Set your language and country preferences";
 "select_language" = "Select Language";
 "select_country" = "Select Country";

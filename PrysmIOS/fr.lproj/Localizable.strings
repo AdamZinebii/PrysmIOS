@@ -3,8 +3,8 @@
 "Research Topics (2/2)" = "Explorations Thématiques (2/2)";
 "Settings" = "Préférences";
 "Personal Information" = "Profil Personnel";
-"Welcome to Prysm" = "Bienvenue dans l'univers Prysm";
-"Create Prysm Account" = "Rejoins Prysm";
+"Welcome to Prysm" = "Bienvenue dans l'univers Orel";
+"Create Prysm Account" = "Rejoins Orel";
 "Summary" = "Synthèse";
 "Highlights" = "Articles Résumés";
 "Key Highlights" = "Moments Forts";
@@ -223,7 +223,7 @@
 "preferences.cancel" = "Annuler";
 
 // MARK: - Bienvenue et Actions de Base
-"welcome_to_prysm" = "Bienvenue dans Prysm";
+"welcome_to_prysm" = "Bienvenue dans Orel";
 "setup_language_country" = "Définissez vos préférences de langue et de pays";
 "select_language" = "Sélectionner la Langue";
 "select_country" = "Sélectionner un Pays";

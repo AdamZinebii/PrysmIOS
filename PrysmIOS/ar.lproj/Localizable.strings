@@ -150,7 +150,7 @@
 "preferences.cancel" = "إلغاء";
 
 // MARK: - الترحيب والإجراءات الأساسية
-"welcome_to_prysm" = "مرحباً بك في بريزم";
+"welcome_to_prysm" = "مرحباً بك في أوريل";
 "setup_language_country" = "حدد تفضيلات اللغة والبلد";
 "select_language" = "اختر اللغة";
 "select_country" = "اختر البلد";
@@ -219,8 +219,8 @@
 "Research Topics (2/2)" = "مواضيع البحث (2/2)";
 "Settings" = "الإعدادات";
 "Personal Information" = "المعلومات الشخصية";
-"Welcome to Prysm" = "مرحباً بك في بريزم";
-"Create Prysm Account" = "إنشاء حساب بريزم";
+"Welcome to Prysm" = "مرحباً بك في أوريل";
+"Create Prysm Account" = "إنشاء حساب أوريل";
 "Summary" = "ملخص";
 "Highlights" = "أبرز النقاط";
 "Key Highlights" = "النقاط الرئيسية";

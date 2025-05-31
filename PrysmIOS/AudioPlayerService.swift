@@ -20,8 +20,107 @@ class AudioPlayerService: ObservableObject {
     private var durationObserver: NSKeyValueObservation?
     private var periodicTimeObserver: Any?
     private var currentUrl: URL?
+    private var isRemoteControlsConfigured = false
 
-    private init() {}
+    private init() {
+        configureAudioSession()
+        setupNotificationObservers()
+    }
+
+    // MARK: - Audio Session Configuration
+    
+    private func configureAudioSession() {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetooth])
+            try audioSession.setActive(true)
+            print("🎵 Audio session configured for playback")
+        } catch {
+            print("❌ Failed to configure audio session: \(error)")
+        }
+    }
+    
+    private func setupNotificationObservers() {
+        // Audio session interruption notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionInterruption),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+        
+        // Audio session route change notifications (for headphone connect/disconnect)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionRouteChange),
+            name: AVAudioSession.routeChangeNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+        
+        print("🔔 Audio session notification observers configured")
+    }
+    
+    @objc private func handleAudioSessionInterruption(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
+        }
+        
+        switch type {
+        case .began:
+            print("🔕 Audio session interrupted (call, other app, etc.)")
+            // Audio is automatically paused by the system
+            DispatchQueue.main.async {
+                self.isPlaying = false
+                self.updateNowPlayingInfo()
+            }
+            
+        case .ended:
+            print("🔔 Audio session interruption ended")
+            
+            if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                if options.contains(.shouldResume) {
+                    print("📱 System suggests resuming playback")
+                    // Resume playback automatically
+                    DispatchQueue.main.async {
+                        self.player?.play()
+                    }
+                }
+            }
+            
+        @unknown default:
+            print("⚠️ Unknown audio session interruption type")
+        }
+    }
+    
+    @objc private func handleAudioSessionRouteChange(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+            return
+        }
+        
+        switch reason {
+        case .oldDeviceUnavailable:
+            // Headphones disconnected - pause playback
+            print("🎧 Headphones disconnected - pausing playback")
+            DispatchQueue.main.async {
+                self.player?.pause()
+            }
+            
+        case .newDeviceAvailable:
+            print("🎧 New audio device connected")
+            // Continue playback on the new device
+            
+        case .categoryChange:
+            print("🔄 Audio category changed")
+            
+        default:
+            print("🔄 Audio route changed: \(reason.rawValue)")
+        }
+    }
 
     func playAudio(from urlString: String?) {
         guard let urlString = urlString, let url = URL(string: urlString) else {
@@ -43,10 +142,37 @@ class AudioPlayerService: ObservableObject {
             let playerItem = AVPlayerItem(url: url)
             player = AVPlayer(playerItem: playerItem)
             
+            // FORCE configure remote controls IMMEDIATELY when audio is loaded
+            setupRemoteTransportControls()
+            isRemoteControlsConfigured = true
+            
+            // FORCE activate audio session and ensure it's ready for background
+            configureAudioSessionForBackground()
+            
             observePlayerState()
             observeItemDuration(playerItem: playerItem)
+            
+            // Immediately update Now Playing Info even before playing
+            updateNowPlayingInfo()
+            
+            print("🎵 AudioPlayerService: Audio loaded and remote controls configured for: \(urlString)")
         } else {
             player?.play()
+        }
+    }
+    
+    private func configureAudioSessionForBackground() {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default, options: [
+                .allowAirPlay,
+                .allowBluetooth,
+                .allowBluetoothA2DP
+            ])
+            try audioSession.setActive(true)
+            print("🎵 Audio session activated for background playback")
+        } catch {
+            print("❌ Failed to configure audio session for background: \(error)")
         }
     }
 
@@ -57,17 +183,19 @@ class AudioPlayerService: ObservableObject {
                 case .playing:
                     self?.isPlaying = true
                     self?.isLoading = false
+                    self?.updateNowPlayingInfo()
                 case .paused:
                     self?.isPlaying = false
                     self?.isLoading = false
+                    self?.updateNowPlayingInfo()
                 case .waitingToPlayAtSpecifiedRate:
                     if let error = avplayer.error {
                         self?.isPlaying = false
                         self?.isLoading = false
                         self?.errorMessage = "Error playing audio: \(error.localizedDescription)"
-                         print("Player error: \(error.localizedDescription)")
+                        print("Player error: \(error.localizedDescription)")
                     } else {
-                         self?.isLoading = true
+                        self?.isLoading = true
                     }
                 @unknown default:
                     self?.isPlaying = false
@@ -109,7 +237,10 @@ class AudioPlayerService: ObservableObject {
             let currentTimeSeconds = CMTimeGetSeconds(time)
             if self.duration > 0 {
                 self.currentTime = currentTimeSeconds
-                self.updateNowPlayingInfo()
+                // Update Now Playing Info less frequently to avoid performance issues
+                if Int(currentTimeSeconds) % 2 == 0 {
+                    self.updateNowPlayingInfo()
+                }
             }
         }
     }
@@ -141,7 +272,7 @@ class AudioPlayerService: ObservableObject {
         }
     }
     
-    func skipForward(_ seconds: Double) {
+    func skipForward(_ seconds: Double = 15.0) {
         guard let player = player else { return }
         
         let currentTime = CMTimeGetSeconds(player.currentTime())
@@ -155,7 +286,7 @@ class AudioPlayerService: ObservableObject {
         }
     }
     
-    func skipBackward(_ seconds: Double) {
+    func skipBackward(_ seconds: Double = 15.0) {
         guard let player = player else { return }
         
         let currentTime = CMTimeGetSeconds(player.currentTime())
@@ -196,62 +327,206 @@ class AudioPlayerService: ObservableObject {
 
     // MARK: - MPRemoteCommandCenter & MPNowPlayingInfoCenter
 
-    func setupRemoteTransportControls() {
+    private func setupRemoteTransportControls() {
         let commandCenter = MPRemoteCommandCenter.shared()
+        
+        print("🎛️ Configuring remote transport controls...")
+        
+        // Clear all existing targets first
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
+        commandCenter.skipForwardCommand.removeTarget(nil)
+        commandCenter.skipBackwardCommand.removeTarget(nil)
+        commandCenter.changePlaybackPositionCommand.removeTarget(nil)
+        commandCenter.nextTrackCommand.removeTarget(nil)
+        commandCenter.previousTrackCommand.removeTarget(nil)
 
+        // Enable and configure play command
+        commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { [weak self] event in
-            guard let self = self else { return .commandFailed }
+            guard let self = self, let player = self.player else { 
+                print("❌ Play command failed - no player available")
+                return .commandFailed 
+            }
             if !self.isPlaying {
-                self.player?.play()
+                player.play()
+                print("▶️ Remote play command executed successfully")
+                DispatchQueue.main.async {
+                    self.updateNowPlayingInfo()
+                }
                 return .success
             }
             return .commandFailed
         }
 
+        // Enable and configure pause command
+        commandCenter.pauseCommand.isEnabled = true
         commandCenter.pauseCommand.addTarget { [weak self] event in
-            guard let self = self else { return .commandFailed }
+            guard let self = self, let player = self.player else { 
+                print("❌ Pause command failed - no player available")
+                return .commandFailed 
+            }
             if self.isPlaying {
-                self.player?.pause()
+                player.pause()
+                print("⏸️ Remote pause command executed successfully")
+                DispatchQueue.main.async {
+                    self.updateNowPlayingInfo()
+                }
                 return .success
             }
             return .commandFailed
         }
         
-        // Optionnel: ajouter d'autres commandes comme next/previous si pertinent
-        // commandCenter.nextTrackCommand.addTarget { ... }
-        // commandCenter.previousTrackCommand.addTarget { ... }
-        print("AudioPlayerService: Remote transport controls configured.")
+        // Enable and configure skip forward command (15 seconds)
+        commandCenter.skipForwardCommand.isEnabled = true
+        commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: 15)]
+        commandCenter.skipForwardCommand.addTarget { [weak self] event in
+            guard let self = self else { return .commandFailed }
+            if let skipEvent = event as? MPSkipIntervalCommandEvent {
+                self.skipForward(skipEvent.interval)
+            } else {
+                self.skipForward(15.0)
+            }
+            print("⏭️ Remote skip forward command executed (15s)")
+            return .success
+        }
+        
+        // Enable and configure skip backward command (15 seconds)
+        commandCenter.skipBackwardCommand.isEnabled = true
+        commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: 15)]
+        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
+            guard let self = self else { return .commandFailed }
+            if let skipEvent = event as? MPSkipIntervalCommandEvent {
+                self.skipBackward(skipEvent.interval)
+            } else {
+                self.skipBackward(15.0)
+            }
+            print("⏮️ Remote skip backward command executed (15s)")
+            return .success
+        }
+        
+        // Enable and configure scrubbing support for lock screen
+        commandCenter.changePlaybackPositionCommand.isEnabled = true
+        commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let self = self,
+                  let positionEvent = event as? MPChangePlaybackPositionCommandEvent else {
+                return .commandFailed
+            }
+            
+            self.seek(to: positionEvent.positionTime)
+            print("🔄 Remote seek command executed to: \(positionEvent.positionTime)s")
+            return .success
+        }
+        
+        // DISABLE next/previous track commands since we have a single podcast
+        commandCenter.nextTrackCommand.isEnabled = false
+        commandCenter.previousTrackCommand.isEnabled = false
+        
+        // ENABLE stop command
+        commandCenter.stopCommand.isEnabled = true
+        commandCenter.stopCommand.addTarget { [weak self] event in
+            guard let self = self else { return .commandFailed }
+            self.stopAudio()
+            print("⏹️ Remote stop command executed")
+            return .success
+        }
+        
+        print("✅ Remote transport controls configured successfully with all commands enabled")
     }
 
-    func updateNowPlayingInfo(isStopping: Bool = false) {
-        var nowPlayingInfo = [String: Any]()
+    private func updateNowPlayingInfo(isStopping: Bool = false) {
+        let nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
         
         if isStopping || player == nil {
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-            print("AudioPlayerService: Cleared Now Playing Info.")
+            nowPlayingInfoCenter.nowPlayingInfo = nil
+            print("🧹 Cleared Now Playing Info")
             return
         }
 
-        // Utiliser un titre générique pour l'instant
-        nowPlayingInfo[MPMediaItemPropertyTitle] = "Prysm News Summary"
-        nowPlayingInfo[MPMediaItemPropertyArtist] = "PrysmIOS"
+        var nowPlayingInfo = [String: Any]()
         
-        // Placeholder pour l'artwork, vous pourrez l'ajouter plus tard
-        // if let image = UIImage(named: "AppIcon") { // Assurez-vous que "AppIcon" est dans vos assets
-        //     nowPlayingInfo[MPMediaItemPropertyArtwork] = 
-        //         MPMediaItemArtwork(boundsSize: image.size) { size in
-        //             return image
-        //         }
-        // }
-
+        // Basic media information - IMPORTANT for Control Center display
+        nowPlayingInfo[MPMediaItemPropertyTitle] = "Your Daily News Briefing"
+        nowPlayingInfo[MPMediaItemPropertyArtist] = "Orel AI"
+        nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "Daily Podcast"
+        nowPlayingInfo[MPMediaItemPropertyGenre] = "News & Politics"
+        
+        // Add playback information - CRITICAL for Control Center
         if duration > 0 {
             nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration
+            print("📊 Set playback duration: \(Int(duration))s")
         }
         nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
-        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = player?.rate ?? 0.0
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
         
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
-        print("AudioPlayerService: Updated Now Playing Info - Time: \(currentTime), Duration: \(duration)")
+        // Media type - helps iOS identify this as a podcast
+        nowPlayingInfo[MPMediaItemPropertyMediaType] = MPMediaType.podcast.rawValue
+        
+        // Add episode number and season (helps with podcast identification)
+        nowPlayingInfo[MPMediaItemPropertyAlbumTrackNumber] = 1
+        nowPlayingInfo[MPMediaItemPropertyAlbumTrackCount] = 1
+        
+        // Add artwork - IMPORTANT for visual identification
+        if let appIcon = UIImage(named: "AppIcon") ?? UIImage(named: "orel_logo") {
+            let artwork = MPMediaItemArtwork(boundsSize: appIcon.size) { size in
+                return appIcon
+            }
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
+            print("🎨 Set artwork from app icon")
+        } else {
+            // Create a distinctive artwork if no app icon
+            let artworkSize = CGSize(width: 400, height: 400)
+            let renderer = UIGraphicsImageRenderer(size: artworkSize)
+            let artwork = renderer.image { context in
+                // Create a professional gradient background
+                let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                        colors: [
+                                            UIColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1.0).cgColor,
+                                            UIColor(red: 0.4, green: 0.2, blue: 0.7, alpha: 1.0).cgColor
+                                        ] as CFArray,
+                                        locations: [0.0, 1.0])!
+                context.cgContext.drawLinearGradient(gradient,
+                                                   start: CGPoint(x: 0, y: 0),
+                                                   end: CGPoint(x: artworkSize.width, y: artworkSize.height),
+                                                   options: [])
+                
+                // Add professional text
+                let paragraphStyle = NSMutableParagraphStyle()
+                paragraphStyle.alignment = .center
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 60, weight: .bold),
+                    .foregroundColor: UIColor.white,
+                    .paragraphStyle: paragraphStyle
+                ]
+                
+                let subtitleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 24, weight: .medium),
+                    .foregroundColor: UIColor.white.withAlphaComponent(0.9),
+                    .paragraphStyle: paragraphStyle
+                ]
+                
+                let titleText = "OREL"
+                let subtitleText = "AI NEWS"
+                
+                let titleRect = CGRect(x: 0, y: artworkSize.height/2 - 60, width: artworkSize.width, height: 80)
+                let subtitleRect = CGRect(x: 0, y: artworkSize.height/2 + 20, width: artworkSize.width, height: 40)
+                
+                titleText.draw(in: titleRect, withAttributes: titleAttributes)
+                subtitleText.draw(in: subtitleRect, withAttributes: subtitleAttributes)
+            }
+            
+            let mediaArtwork = MPMediaItemArtwork(boundsSize: artwork.size) { size in
+                return artwork
+            }
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = mediaArtwork
+            print("🎨 Created custom artwork")
+        }
+
+        // Set the Now Playing Info
+        nowPlayingInfoCenter.nowPlayingInfo = nowPlayingInfo
+        
+        print("📱 Updated Now Playing Info - Title: 'Your Daily News Briefing', Playing: \(isPlaying), Time: \(Int(currentTime))s/\(Int(duration))s")
+        print("🎛️ Control Center should now display the player!")
     }
 
     deinit {
@@ -260,6 +535,25 @@ class AudioPlayerService: ObservableObject {
         if let periodicObserver = periodicTimeObserver {
             player?.removeTimeObserver(periodicObserver)
         }
+        
+        // Remove notification observers
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
+        
+        // Clear remote commands
+        let commandCenter = MPRemoteCommandCenter.shared()
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
+        commandCenter.skipForwardCommand.removeTarget(nil)
+        commandCenter.skipBackwardCommand.removeTarget(nil)
+        commandCenter.changePlaybackPositionCommand.removeTarget(nil)
+        commandCenter.nextTrackCommand.removeTarget(nil)
+        commandCenter.previousTrackCommand.removeTarget(nil)
+        commandCenter.stopCommand.removeTarget(nil)
+        
+        // Clear now playing info
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        
         print("AudioPlayerService deinitialized")
     }
 } 

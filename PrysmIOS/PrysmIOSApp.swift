@@ -124,19 +124,25 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
 
     private func setupAudioSessionAndRemoteControls(application: UIApplication) {
-        print("AppDelegate: Setting up audio session and remote controls...")
+        print("🎵 AppDelegate: Setting up audio session and remote controls...")
         let audioSession = AVAudioSession.sharedInstance()
         do {
-            try audioSession.setCategory(.playback, mode: .default, options: [.allowAirPlay])
+            // Configure audio session for background playback
+            try audioSession.setCategory(.playback, mode: .default, options: [
+                .allowAirPlay,
+                .allowBluetooth,
+                .allowBluetoothA2DP,
+                .mixWithOthers
+            ])
             try audioSession.setActive(true)
-            print("AppDelegate: Audio session configured for playback and activated.")
+            print("✅ AppDelegate: Audio session configured for background playback")
             
+            // Enable remote control events for lock screen and control center
             application.beginReceivingRemoteControlEvents()
-            AudioPlayerService.shared.setupRemoteTransportControls()
-            print("AppDelegate: Remote controls set up.")
+            print("✅ AppDelegate: Remote control events enabled")
             
         } catch {
-            print("AppDelegate: Failed to set up audio session or remote controls: \(error.localizedDescription)")
+            print("❌ AppDelegate: Failed to set up audio session: \(error.localizedDescription)")
         }
     }
 
@@ -274,8 +280,8 @@ struct MainAppView: View {
     var body: some View {
             ModernDashboardView()
         .fullScreenCover(isPresented: $showNewsPreferences) {
-                // Présentez les nouvelles préférences modernes
-                PreferencesView(isPresented: $showNewsPreferences)
+                // Présentez les nouvelles préférences modernes - mandatory after auth
+                PreferencesView(isPresented: $showNewsPreferences, isOptional: false)
         }
         // Observer les changements de shouldShowNewsPreferences dans AuthService
         .onChange(of: authService.shouldShowNewsPreferences) { newValue in

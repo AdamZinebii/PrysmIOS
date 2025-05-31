@@ -71,7 +71,7 @@ struct ConversationView: View {
             )
         }
         .fullScreenCover(isPresented: $showingPreferences) {
-            PreferencesView(isPresented: $showingPreferences, startAtScheduling: true)
+            PreferencesView(isPresented: $showingPreferences, startAtScheduling: true, isOptional: true)
         }
     }
     

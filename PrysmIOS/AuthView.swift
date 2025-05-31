@@ -22,7 +22,7 @@ struct AuthView: View {
                             .font(.system(size: 60))
                             .foregroundColor(themeManager.accentColor)
                         
-                        Text("Prysm News")
+                        Text("Orel News")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .foregroundColor(themeManager.textPrimaryColor)

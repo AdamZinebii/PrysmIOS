@@ -283,41 +283,41 @@ class AIFeedService: ObservableObject {
             var articlesByTopic: [String: [ArticleData]] = [:]
             
             // Parse each topic
-            for (topicName, topicInfo) in topicsData {
+                for (topicName, topicInfo) in topicsData {
                 print("🔍 Processing topic: \(topicName)")
                 
-                guard let topicDict = topicInfo as? [String: Any],
+                    guard let topicDict = topicInfo as? [String: Any],
                       let topicData = topicDict["data"] as? [String: Any],
                       let subtopics = topicData["subtopics"] as? [String: Any] else {
                     print("⚠️ Invalid structure for topic: \(topicName)")
-                    continue
-                }
-                
-                var topicArticles: [ArticleData] = []
-                
+                        continue
+                    }
+                    
+                    var topicArticles: [ArticleData] = []
+                    
                 // Parse each subtopic
                 for (subtopicName, subtopicInfo) in subtopics {
-                    guard let subtopicDict = subtopicInfo as? [String: Any] else { continue }
-                    
+                        guard let subtopicDict = subtopicInfo as? [String: Any] else { continue }
+                        
                     print("🔍 Processing subtopic: \(subtopicName) in topic: \(topicName)")
                     
                     // The articles are in subtopicDict[subtopicName] (same name twice)
                     if let articlesArray = subtopicDict[subtopicName] as? [[String: Any]] {
                         print("📄 Found \(articlesArray.count) articles in subtopic '\(subtopicName)' of topic '\(topicName)'")
                         
-                        for articleDict in articlesArray {
-                            if let title = articleDict["title"] as? String,
-                               let source = articleDict["source"] as? String,
-                               let link = articleDict["link"] as? String {
-                                
-                                let article = ArticleData(
-                                    title: title,
-                                    thumbnail: articleDict["thumbnail"] as? String,
-                                    source: source,
-                                    link: link,
-                                    published: articleDict["published"] as? String
-                                )
-                                topicArticles.append(article)
+                                for articleDict in articlesArray {
+                                    if let title = articleDict["title"] as? String,
+                                       let source = articleDict["source"] as? String,
+                                       let link = articleDict["link"] as? String {
+                                        
+                                        let article = ArticleData(
+                                            title: title,
+                                            thumbnail: articleDict["thumbnail"] as? String,
+                                            source: source,
+                                            link: link,
+                                            published: articleDict["published"] as? String
+                                        )
+                                        topicArticles.append(article)
                                 
                                 // Log thumbnail for debugging
                                 if let thumbnail = article.thumbnail {
@@ -366,9 +366,9 @@ class AIFeedService: ObservableObject {
                     print("✅ Stored \(topicArticles.count) articles for topic '\(topicName)' (displaying \(articlesByTopic[topicName]!.count))")
                 } else {
                     print("⚠️ No articles found for topic '\(topicName)'")
+                    }
                 }
-            }
-            
+                
             print("🎯 Successfully extracted article data for \(articlesByTopic.count) topics")
             print("📊 Topics with articles: \(Array(articlesByTopic.keys))")
             for (topic, articles) in articlesByTopic {

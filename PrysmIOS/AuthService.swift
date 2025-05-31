@@ -150,6 +150,8 @@ class AuthService: ObservableObject {
     @Published var apiKeys: [String: String]? // To store API keys fetched from backend
     @Published var isLoadingApiKeys: Bool = false
     @Published var shouldShowNewsPreferences: Bool = false // Flag to trigger news preferences flow
+    @Published var isSavingPreferencesInBackground: Bool = false // Flag to show loading while saving preferences
+    @Published var isFirstTimeSetup: Bool = false // Flag to track if this is first time preferences setup
 
     private var db = Firestore.firestore() // Firestore instance
     private var authStateHandler: AuthStateDidChangeListenerHandle?
@@ -683,6 +685,7 @@ class AuthService: ObservableObject {
         }
         
         print("DEBUG: [markNewsPreferencesComplete] Marking preferences as complete for user \(user.uid)")
+        print("DEBUG: [markNewsPreferencesComplete] isFirstTimeSetup: \(isFirstTimeSetup)")
         
         // Update Firestore directly with simple data
         let userDocRef = db.collection("users").document(user.uid)
@@ -700,6 +703,16 @@ class AuthService: ObservableObject {
                 // Update local state immediately
                 self.userProfile?.hasCompletedNewsPreferences = true
                 print("DEBUG: [markNewsPreferencesComplete] Updated local userProfile.hasCompletedNewsPreferences = true")
+                
+                // Trigger update endpoint for first-time users
+                if self.isFirstTimeSetup {
+                    print("🚀 [markNewsPreferencesComplete] First time setup detected, triggering update endpoint")
+                    Task {
+                        await UpdateService.shared.triggerFirstTimeUpdate(userId: user.uid)
+                    }
+                    // Reset the flag
+                    self.isFirstTimeSetup = false
+                }
             }
         }
     }

@@ -252,6 +252,7 @@ enum DetailLevel: String, CaseIterable {
 struct PreferencesView: View {
     @Binding var isPresented: Bool
     let startAtScheduling: Bool // Nouveau paramètre pour démarrer directement au scheduling
+    let isOptional: Bool // NEW: true if user can cancel, false if mandatory (after auth)
     @StateObject private var authService = AuthService.shared
     @StateObject private var conversationService = ConversationService.shared
     @EnvironmentObject var languageManager: LanguageManager
@@ -264,16 +265,32 @@ struct PreferencesView: View {
     @State private var errorMessage: String?
     @State private var showingConversation = false
     
-    // Initializer par défaut
+    // Initializer par défaut - mandatory flow (after auth)
     init(isPresented: Binding<Bool>) {
         self._isPresented = isPresented
         self.startAtScheduling = false
+        self.isOptional = false // Mandatory by default
     }
     
-    // Initializer avec option de démarrer au scheduling
+    // Initializer avec option de démarrer au scheduling - mandatory flow
     init(isPresented: Binding<Bool>, startAtScheduling: Bool) {
         self._isPresented = isPresented
         self.startAtScheduling = startAtScheduling
+        self.isOptional = false // Mandatory by default
+    }
+    
+    // NEW: Initializer with optional parameter to control cancellation
+    init(isPresented: Binding<Bool>, isOptional: Bool) {
+        self._isPresented = isPresented
+        self.startAtScheduling = false
+        self.isOptional = isOptional
+    }
+    
+    // NEW: Full initializer with all options
+    init(isPresented: Binding<Bool>, startAtScheduling: Bool, isOptional: Bool) {
+        self._isPresented = isPresented
+        self.startAtScheduling = startAtScheduling
+        self.isOptional = isOptional
     }
     
     enum PreferenceStep: Int, CaseIterable {
@@ -285,21 +302,21 @@ struct PreferencesView: View {
         
         func title(using languageManager: LanguageManager) -> String {
             switch self {
-            case .languageCountry: return languageManager.localizedString("preferences.language_country")
-            case .categories: return languageManager.localizedString("preferences.choose_interests")
-            case .subcategories: return languageManager.localizedString("preferences.refine_selection")
-            case .trendingTopics: return languageManager.localizedString("preferences.trending_topics")
-            case .settings: return languageManager.localizedString("preferences.final_settings")
+            case .languageCountry: return "Language & Region"
+            case .categories: return "Topics of Interest"
+            case .subcategories: return "Refine Your Selection"
+            case .trendingTopics: return "Trending Topics"
+            case .settings: return "Preferences"
             }
         }
         
         func subtitle(using languageManager: LanguageManager) -> String {
             switch self {
-            case .languageCountry: return languageManager.localizedString("preferences.setup_language_country")
-            case .categories: return languageManager.localizedString("preferences.select_topics")
-            case .subcategories: return languageManager.localizedString("preferences.pick_areas")
-            case .trendingTopics: return languageManager.localizedString("preferences.select_trending")
-            case .settings: return languageManager.localizedString("preferences.configure_frequency")
+            case .languageCountry: return "Choose your language and location"
+            case .categories: return "Select topics you'd like to follow"
+            case .subcategories: return "Pick specific areas of interest"
+            case .trendingTopics: return "Stay current with trending topics"
+            case .settings: return "Configure delivery preferences"
             }
         }
     }
@@ -346,10 +363,41 @@ struct PreferencesView: View {
                 // Bottom Navigation
                 bottomNavigationView
             }
-            .navigationBarHidden(true)
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                // Show cancel button only if flow is optional
+                if isOptional {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") {
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                    }
+                }
+                
+                // Optional: Show step indicator in title
+                ToolbarItem(placement: .principal) {
+                    if !isOptional {
+                        Text("Setup Required")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Preferences")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
             .background(Color(UIColor.systemBackground))
         }
         .onAppear {
+            // Check if this is first time setup (new user with no completed preferences)
+            if authService.userProfile?.hasCompletedNewsPreferences != true {
+                print("🚀 [PreferencesView] First time setup detected - setting flag")
+                authService.isFirstTimeSetup = true
+            }
+            
             loadExistingPreferences()
             
             // Si on doit démarrer directement au scheduling, aller à l'étape settings
@@ -360,18 +408,19 @@ struct PreferencesView: View {
     }
     
     private var headerView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             Text(currentStep.title(using: languageManager))
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(.primary)
                 .multilineTextAlignment(.center)
             
             Text(currentStep.subtitle(using: languageManager))
-                .font(.subheadline)
+                .font(.system(size: 16))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding(.top, 20)
+        .padding(.top, 12)
+        .padding(.horizontal, 24)
     }
     
     private var bottomNavigationView: some View {
@@ -653,9 +702,9 @@ struct PreferencesView: View {
                 case .success(let response):
                     if response.success {
                         print("✅ Scheduling preferences saved successfully")
-                    } else {
+                } else {
                         print("❌ Failed to save scheduling preferences: \(response.error ?? "Unknown error")")
-                    }
+                }
                 case .failure(let error):
                     print("❌ Error saving scheduling preferences: \(error.localizedDescription)")
                 }
@@ -681,10 +730,11 @@ struct PreferencesView: View {
             return
         }
         
-        isSaving = true
-        errorMessage = nil
+        // Immediately start background saving state and dismiss preferences
+        authService.isSavingPreferencesInBackground = true
+        presentationMode.wrappedValue.dismiss()
         
-        print("🔍 [savePreferencesAndNavigateToNewsFeed] Starting save process")
+        print("🔍 [savePreferencesAndNavigateToNewsFeed] Starting background save process")
         print("🔍 Current preferences state:")
         print("    selectedCategories: \(preferences.selectedCategories)")
         print("    selectedSubcategories: \(preferences.selectedSubcategories)")
@@ -693,67 +743,68 @@ struct PreferencesView: View {
         print("    detailLevel: \(preferences.detailLevel)")
         print("    language: \(preferences.language)")
         
+        // Continue saving in background
+        Task {
+            await performBackgroundSave(uid: uid)
+        }
+    }
+    
+    private func performBackgroundSave(uid: String) async {
         // Récupérer les sujets spécifiques existants pour éviter de les écraser
-        getExistingSpecificSubjects { existingSubjects in
-            // Combiner les sujets existants avec les nouveaux sujets personnalisés
-            let allSpecificSubjects = existingSubjects + self.preferences.customTopics
-            
-            print("🔍 [savePreferencesAndNavigateToNewsFeed] Combined specific subjects:")
-            print("    existingSubjects: \(existingSubjects)")
-            print("    new customTopics: \(self.preferences.customTopics)")
-            print("    allSpecificSubjects: \(allSpecificSubjects)")
-            
-            // Créer les préférences de conversation avec tous les sujets
-            let conversationPreferences = self.preferences.toConversationPreferences()
-            
-            print("🔍 [savePreferencesAndNavigateToNewsFeed] Generated conversation preferences:")
-            print("    topics: \(conversationPreferences.topics)")
-            print("    subtopics keys: \(conversationPreferences.subtopics.keys.sorted())")
-            for (subtopic, details) in conversationPreferences.subtopics {
-                print("      '\(subtopic)' -> subreddits: \(details.subreddits), queries: \(details.queries)")
-            }
-            print("    detailLevel: \(conversationPreferences.detailLevel)")
-            print("    language: \(conversationPreferences.language)")
-            
-            // Utiliser le même service backend que ConversationView
-            let conversationService = ConversationService.shared
-            conversationService.currentUserId = uid
-            
-            // Mettre à jour les sujets spécifiques dans le service avant de sauvegarder
-            conversationService.specificSubjects = allSpecificSubjects
-            
-            print("🔍 [savePreferencesAndNavigateToNewsFeed] Saving conversation preferences")
-            conversationService.saveAllPreferencesAtEnd(conversationPreferences) { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let response):
-                        if response.success {
-                            print("🔍 [savePreferencesAndNavigateToNewsFeed] Conversation preferences saved successfully")
+        await withCheckedContinuation { continuation in
+            getExistingSpecificSubjects { existingSubjects in
+                // Combiner les sujets existants avec les nouveaux sujets personnalisés
+                let allSpecificSubjects = existingSubjects + self.preferences.customTopics
                 
-                            // Sauvegarder les paramètres de scheduling
-                            print("🔍 [savePreferencesAndNavigateToNewsFeed] Saving scheduling preferences")
-                            self.saveSchedulingPreferences(uid: uid) {
-                                print("🔍 [savePreferencesAndNavigateToNewsFeed] Scheduling preferences saved")
+                print("🔍 [performBackgroundSave] Combined specific subjects:")
+                print("    existingSubjects: \(existingSubjects)")
+                print("    new customTopics: \(self.preferences.customTopics)")
+                print("    allSpecificSubjects: \(allSpecificSubjects)")
+                
+                // Créer les préférences de conversation avec tous les sujets
+                let conversationPreferences = self.preferences.toConversationPreferences()
+                
+                print("🔍 [performBackgroundSave] Generated conversation preferences:")
+                print("    topics: \(conversationPreferences.topics)")
+                print("    subtopics keys: \(conversationPreferences.subtopics.keys.sorted())")
+                
+                // Utiliser le même service backend que ConversationView
+                let conversationService = ConversationService.shared
+                conversationService.currentUserId = uid
+                
+                // Mettre à jour les sujets spécifiques dans le service avant de sauvegarder
+                conversationService.specificSubjects = allSpecificSubjects
+                
+                print("🔍 [performBackgroundSave] Saving conversation preferences")
+                conversationService.saveAllPreferencesAtEnd(conversationPreferences) { result in
+                    DispatchQueue.main.async {
+                        switch result {
+                        case .success(let response):
+                            if response.success {
+                                print("🔍 [performBackgroundSave] Conversation preferences saved successfully")
                                 
-                                // Mettre à jour le profil local
-                                self.authService.updateLocalProfileForPrefCompletion(
-                                    originalNews: self.preferences.selectedCategories,
-                                    refinedNews: self.preferences.selectedCategories,
-                                    originalResearch: [],
-                                    refinedResearch: [],
-                                    newsDetails: Array(repeating: self.preferences.detailLevel.rawValue, count: self.preferences.selectedCategories.count),
-                                    researchDetails: []
-                                )
-                                
-                                // IMPORTANT: Marquer les préférences comme complètes AVANT de mettre à jour le profil
-                                print("🔍 [savePreferencesAndNavigateToNewsFeed] Marking preferences as complete")
-                                self.authService.markNewsPreferencesComplete()
-                                
-                                // Attendre un peu pour s'assurer que markNewsPreferencesComplete est terminé
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    // Maintenant mettre à jour le profil avec langue et pays
+                                // Sauvegarder les paramètres de scheduling
+                                print("🔍 [performBackgroundSave] Saving scheduling preferences")
+                                self.saveSchedulingPreferences(uid: uid) {
+                                    print("🔍 [performBackgroundSave] Scheduling preferences saved")
+                                    
+                                    // Mettre à jour le profil local
+                                    self.authService.updateLocalProfileForPrefCompletion(
+                                        originalNews: self.preferences.selectedCategories,
+                                        refinedNews: self.preferences.selectedCategories,
+                                        originalResearch: [],
+                                        refinedResearch: [],
+                                        newsDetails: Array(repeating: self.preferences.detailLevel.rawValue, count: self.preferences.selectedCategories.count),
+                                        researchDetails: []
+                                    )
+                                    
+                                    // Marquer les préférences comme complètes
+                                    print("🔍 [performBackgroundSave] Marking preferences as complete")
+                                    self.authService.markNewsPreferencesComplete()
+                                    
+                                    // Mettre à jour le profil avec langue et pays
                                     if !self.preferences.language.isEmpty && !self.preferences.country.isEmpty {
-                                        print("🔍 [savePreferencesAndNavigateToNewsFeed] Updating user profile with language and country")
+                                        print("🔍 [performBackgroundSave] Updating user profile with language and country")
                                         self.authService.updateUserProfile(
                                             firstName: self.authService.userProfile?.firstName ?? "",
                                             surname: self.authService.userProfile?.surname ?? "",
@@ -763,23 +814,19 @@ struct PreferencesView: View {
                                         )
                                     }
                                     
-                                    // Attendre encore un peu pour s'assurer que tout est sauvegardé
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                        print("🔍 [savePreferencesAndNavigateToNewsFeed] All operations complete, dismissing preferences")
-                                        self.isSaving = false
-                                        
-                                        // Fermer PreferencesView pour retourner au NewsFeedView
-                                        self.presentationMode.wrappedValue.dismiss()
-                                    }
+                                    print("🔍 [performBackgroundSave] All operations complete")
+                                    self.authService.isSavingPreferencesInBackground = false
                                 }
+                            } else {
+                                print("❌ [performBackgroundSave] Failed to save preferences: \(response.error ?? "unknown error")")
+                                self.authService.isSavingPreferencesInBackground = false
                             }
-                        } else {
-                            self.errorMessage = "Failed to save preferences: \(response.error ?? "unknown error")"
-                            self.isSaving = false
+                        case .failure(let error):
+                            print("❌ [performBackgroundSave] Error saving preferences: \(error.localizedDescription)")
+                            self.authService.isSavingPreferencesInBackground = false
                         }
-                    case .failure(let error):
-                        self.errorMessage = "Failed to save preferences: \(error.localizedDescription)"
-                        self.isSaving = false
+                        
+                        continuation.resume()
                     }
                 }
             }
@@ -856,24 +903,20 @@ struct UpdatedSubcategoriesStepView: View {
                 .background(Color(UIColor.secondarySystemBackground))
                 .cornerRadius(12)
             } else {
-                // Instructions pour l'utilisateur
+                // Instructions for the user
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(languageManager.localizedString("preferences.subcategories_instruction"))
-                        .font(.subheadline)
+                    Text("Refine your interests with specific subtopics")
+                        .font(.system(size: 16))
                         .foregroundColor(.secondary)
-                    
-                    Text(languageManager.localizedString("preferences.subcategories_optional"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 4)
                 }
-                .padding(.horizontal)
                 
-                // Catégories et sous-catégories
+                // Categories and subcategories
                 ForEach(selectedCategories, id: \.id) { category in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Image(systemName: category.icon)
-                                .foregroundColor(.blue)
+                                .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
                                 .font(.title2)
                             
                             VStack(alignment: .leading, spacing: 2) {
@@ -895,7 +938,7 @@ struct UpdatedSubcategoriesStepView: View {
                                 toggleAllSubtopics(for: category)
                             }
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
                         }
                         
                         // Hardcoded subtopics from catalog
@@ -978,6 +1021,7 @@ struct TrendingTopicsStepView: View {
     @State private var isLoading = false
     @State private var hasLoaded = false
     @State private var lastSelectedSubtopics: [String] = [] // Track last selected subtopics
+    @State private var loadingProgress: Double = 0.0 // For animated loading bar
     
     var selectedCategories: [NewsCategory] {
         categories.filter { preferences.selectedCategories.contains($0.localizedName(using: languageManager)) }
@@ -1033,21 +1077,62 @@ struct TrendingTopicsStepView: View {
                 .padding(.horizontal)
                 
                 if isLoading {
-                    // Loading state
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.2)
+                    // Loading state with animated progress bar
+                    VStack(spacing: 20) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(.orange)
+                            .opacity(0.8)
                         
-                        Text(languageManager.localizedString("preferences.loading_trending_topics"))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        VStack(spacing: 8) {
+                            Text("Discovering Trending Topics")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.primary)
+                            
+                            Text("Analyzing your selected subtopics...")
+                                .font(.system(size: 15))
+                                .foregroundColor(.secondary)
+                        }
                         
-                        Text(languageManager.localizedString("preferences.analyzing_subtopics"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        // Custom animated loading bar
+                        VStack(spacing: 8) {
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color(.systemGray5))
+                                    .frame(height: 8)
+                                
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [
+                                                Color.orange.opacity(0.8),
+                                                Color.orange,
+                                                Color.orange.opacity(0.8)
+                                            ]),
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: max(20, loadingProgress * 280), height: 8)
+                                    .animation(.easeInOut(duration: 0.3), value: loadingProgress)
+                            }
+                            .frame(width: 280)
+                            
+                            Text("\(Int(loadingProgress * 100))%")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
+                                .animation(nil, value: loadingProgress) // Prevent text animation
+                                .monospacedDigit() // Use monospaced digits for consistent width
+                        }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                    .onAppear {
+                        // Start the loading animation
+                        withAnimation(.linear(duration: 8.0)) {
+                            loadingProgress = 0.9 // Move to 90% slowly
+                        }
+                    }
                 } else if hasLoaded {
                     // Show trending topics grouped by subtopic
                     ScrollView {
@@ -1206,6 +1291,7 @@ struct TrendingTopicsStepView: View {
             if hasLoaded {
                 hasLoaded = false
                 trendingTopics.removeAll()
+                loadingProgress = 0.0 // Reset progress bar
                 print("DEBUG: [TrendingTopicsStepView] Reset trending topics state due to subtopic changes")
             }
             
@@ -1243,6 +1329,7 @@ struct TrendingTopicsStepView: View {
         
         isLoading = true
         trendingTopics.removeAll()
+        loadingProgress = 0.0 // Reset progress bar
         
         Task {
             for subtopic in selectedSubtopics {
@@ -1268,11 +1355,19 @@ struct TrendingTopicsStepView: View {
             }
             
             await MainActor.run {
-                isLoading = false
-                hasLoaded = true
+                // Complete the loading bar to 100%
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    loadingProgress = 1.0
+                }
                 
-                // Clean up obsolete trending topics now that we have fresh data
-                cleanupObsoleteTrendingTopicsAfterLoad()
+                // After a brief delay, transition to loaded state
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    isLoading = false
+                    hasLoaded = true
+                    
+                    // Clean up obsolete trending topics now that we have fresh data
+                    cleanupObsoleteTrendingTopicsAfterLoad()
+                }
             }
         }
     }
@@ -1445,7 +1540,6 @@ struct TrendingTopicChip: View {
 
 struct SettingsStepView: View {
     @Binding var preferences: UserPreferences
-    @State private var showCountryPicker = false
     @EnvironmentObject var languageManager: LanguageManager
     
     private let weekdays = [
@@ -1455,29 +1549,10 @@ struct SettingsStepView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            // Country Selection
-            VStack(alignment: .leading, spacing: 16) {
-                Text(languageManager.localizedString("preferences.country"))
-                    .font(.headline)
-                
-                Button(action: { showCountryPicker = true }) {
-                    HStack {
-                        Text(preferences.country.isEmpty ? languageManager.localizedString("preferences.select_country") : preferences.country)
-                            .foregroundColor(preferences.country.isEmpty ? .secondary : .primary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .cornerRadius(8)
-                }
-            }
-            
             // Update Frequency with Time Selection
             VStack(alignment: .leading, spacing: 16) {
-                Text(languageManager.localizedString("preferences.update_frequency"))
-                    .font(.headline)
+                Text("Delivery Schedule")
+                    .font(.system(size: 20, weight: .semibold))
                 
                 VStack(spacing: 12) {
                     ForEach(UpdateFrequency.allCases, id: \.self) { frequency in
@@ -1494,8 +1569,8 @@ struct SettingsStepView: View {
                                 switch frequency {
                                 case .daily:
                                     HStack {
-                                        Text(languageManager.localizedString("preferences.time"))
-                                            .font(.subheadline)
+                                        Text("Time")
+                                            .font(.system(size: 15))
                                             .foregroundColor(.secondary)
                                         Spacer()
                                         DatePicker("", selection: $preferences.dailyTime, displayedComponents: .hourAndMinute)
@@ -1506,8 +1581,8 @@ struct SettingsStepView: View {
                                 case .weekly:
                                     VStack(spacing: 8) {
                                         HStack {
-                                            Text(languageManager.localizedString("preferences.day"))
-                                                .font(.subheadline)
+                                            Text("Day")
+                                                .font(.system(size: 15))
                                                 .foregroundColor(.secondary)
                                             Spacer()
                                             Picker("Day", selection: $preferences.weeklyDay) {
@@ -1519,8 +1594,8 @@ struct SettingsStepView: View {
                                         }
                                         
                                         HStack {
-                                            Text(languageManager.localizedString("preferences.time"))
-                                                .font(.subheadline)
+                                            Text("Time")
+                                                .font(.system(size: 15))
                                                 .foregroundColor(.secondary)
                                             Spacer()
                                             DatePicker("", selection: $preferences.weeklyTime, displayedComponents: .hourAndMinute)
@@ -1534,26 +1609,6 @@ struct SettingsStepView: View {
                     }
                 }
             }
-            
-            // Detail Level
-            VStack(alignment: .leading, spacing: 16) {
-                Text(languageManager.localizedString("preferences.detail_level"))
-                    .font(.headline)
-                
-                VStack(spacing: 12) {
-                    ForEach(DetailLevel.allCases, id: \.self) { level in
-                        DetailLevelOption(
-                            level: level,
-                            isSelected: preferences.detailLevel == level
-                        ) {
-                            preferences.detailLevel = level
-                        }
-                    }
-                }
-            }
-        }
-        .sheet(isPresented: $showCountryPicker) {
-            CountryPickerView(selectedCountry: $preferences.country, isPresented: $showCountryPicker)
         }
     }
 }
@@ -1568,12 +1623,12 @@ struct ProgressBar: View {
             HStack {
                 ForEach(0..<totalSteps, id: \.self) { step in
                     Circle()
-                        .fill(step <= currentStep ? Color.blue : Color.gray.opacity(0.3))
+                        .fill(step <= currentStep ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.gray.opacity(0.3))
                         .frame(width: 12, height: 12)
                     
                     if step < totalSteps - 1 {
                         Rectangle()
-                            .fill(step < currentStep ? Color.blue : Color.gray.opacity(0.3))
+                            .fill(step < currentStep ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.gray.opacity(0.3))
                             .frame(height: 2)
                     }
                 }
@@ -1597,26 +1652,28 @@ struct CategoryCard: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 32))
-                    .foregroundColor(isSelected ? .white : .blue)
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundColor(isSelected ? .white : Color(red: 0.1, green: 0.2, blue: 0.4))
                 
                 Text(category.localizedName(using: languageManager))
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(isSelected ? .white : .primary)
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 120)
-            .background(isSelected ? Color.blue : Color(UIColor.secondarySystemBackground))
-            .cornerRadius(16)
-            .overlay(
+            .frame(height: 100)
+            .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+                    .fill(isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color(.systemGray6))
+                    .shadow(color: isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4).opacity(0.2) : .clear, radius: 8, x: 0, y: 4)
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isSelected)
     }
 }
 
@@ -1628,24 +1685,27 @@ struct SubcategoryChip: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 if !isHardcoded {
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 8))
+                        .font(.system(size: 10))
                         .foregroundColor(isSelected ? .white : .orange)
                 }
                 
-            Text(name)
-                .font(.caption)
-                .fontWeight(.medium)
-                    .foregroundColor(isSelected ? .white : (isHardcoded ? .blue : .orange))
+                Text(name)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(isSelected ? .white : (isHardcoded ? Color(red: 0.1, green: 0.2, blue: 0.4) : .orange))
             }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-            .background(isSelected ? (isHardcoded ? Color.blue : Color.orange) : (isHardcoded ? Color.blue.opacity(0.1) : Color.orange.opacity(0.1)))
-                .cornerRadius(16)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isSelected ? (isHardcoded ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.orange) : (isHardcoded ? Color(red: 0.1, green: 0.2, blue: 0.4).opacity(0.1) : Color.orange.opacity(0.1)))
+            )
         }
         .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.05 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
     }
 }
 
@@ -1656,30 +1716,36 @@ struct FrequencyOption: View {
     
     var body: some View {
         Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(frequency.rawValue)
-                        .font(.headline)
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundColor(.primary)
                     Text(frequency.description)
-                        .font(.caption)
+                        .font(.system(size: 14))
                         .foregroundColor(.secondary)
                 }
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
+                        .font(.system(size: 20))
+                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
                 }
             }
-            .padding()
-            .background(Color(UIColor.secondarySystemBackground))
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.clear, lineWidth: 2)
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isSelected)
     }
 }
 
@@ -1690,33 +1756,39 @@ struct DetailLevelOption: View {
     
     var body: some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: 16) {
                 Text(level.icon)
-                    .font(.title2)
+                    .font(.system(size: 24))
                 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(level.rawValue)
-                        .font(.headline)
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundColor(.primary)
                     Text(level.description)
-                        .font(.caption)
+                        .font(.system(size: 14))
                         .foregroundColor(.secondary)
                 }
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
+                        .font(.system(size: 20))
+                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
                 }
             }
-            .padding()
-            .background(Color(UIColor.secondarySystemBackground))
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.clear, lineWidth: 2)
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isSelected)
     }
 }
 
@@ -1724,28 +1796,33 @@ struct DetailLevelOption: View {
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.system(size: 17, weight: .medium))
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(Color.blue)
-            .cornerRadius(12)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .frame(height: 52)
+            .background(
+                Capsule()
+                    .fill(Color(red: 0.1, green: 0.2, blue: 0.4))
+                    .shadow(color: Color(red: 0.1, green: 0.2, blue: 0.4).opacity(0.3), radius: 8, x: 0, y: 4)
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 
 struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
-            .foregroundColor(.blue)
+            .font(.system(size: 17, weight: .medium))
+            .foregroundColor(.primary)
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(12)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .frame(height: 52)
+            .background(
+                Capsule()
+                    .fill(Color(.systemGray6))
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 
@@ -1761,7 +1838,7 @@ struct ConversationBubble: View {
                     Text(message.content)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color.blue)
+                        .background(Color(red: 0.1, green: 0.2, blue: 0.4))
                         .foregroundColor(.white)
                         .cornerRadius(16)
                         .frame(maxWidth: 250, alignment: .trailing)
@@ -1873,10 +1950,10 @@ struct LanguageCountryStepView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "textformat")
-                        .foregroundColor(.blue)
-                    Text(languageManager.localizedString("preferences.select_language"))
-                        .font(.headline)
-                        .fontWeight(.semibold)
+                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                        .font(.system(size: 18))
+                    Text("Language")
+                        .font(.system(size: 18, weight: .medium))
                     Spacer()
                 }
                 
@@ -1900,10 +1977,10 @@ struct LanguageCountryStepView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "location")
-                        .foregroundColor(.blue)
-                    Text(languageManager.localizedString("preferences.select_country"))
-                        .font(.headline)
-                        .fontWeight(.semibold)
+                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                        .font(.system(size: 18))
+                    Text("Location")
+                        .font(.system(size: 18, weight: .medium))
                     Spacer()
                 }
                 
@@ -1923,7 +2000,7 @@ struct LanguageCountryStepView: View {
                             .fill(Color(UIColor.secondarySystemBackground))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(preferences.country.isEmpty ? Color.clear : Color.blue, lineWidth: 2)
+                                    .stroke(preferences.country.isEmpty ? Color.clear : Color(red: 0.1, green: 0.2, blue: 0.4), lineWidth: 2)
                             )
                     )
                 }
@@ -1960,41 +2037,22 @@ struct LanguageSelectionCard: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Text(languageFlag)
-                    .font(.system(size: 30))
+                    .font(.system(size: 28))
                 
                 Text(language)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(isSelected ? .white : .primary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .frame(height: 80)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        isSelected
-                        ? LinearGradient(
-                            gradient: Gradient(colors: [.blue, .blue.opacity(0.8)]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        : LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color(UIColor.secondarySystemBackground),
-                                Color(UIColor.secondarySystemBackground)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
-                    )
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color(.systemGray6))
+                    .shadow(color: isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4).opacity(0.2) : .clear, radius: 8, x: 0, y: 4)
             )
         }
-        .scaleEffect(isSelected ? 1.05 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isSelected)
     }
 }
 
@@ -2066,7 +2124,7 @@ struct CountryPickerView: View {
                             Spacer()
                             if selectedCountry == country {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
                             }
                         }
                     }

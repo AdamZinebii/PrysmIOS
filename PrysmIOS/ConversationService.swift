@@ -265,6 +265,21 @@ class ConversationService: ObservableObject {
     
     // Helper function to determine which topic a subtopic belongs to
     private func isSubtopicUnderTopic(subtopic: String, topic: String) -> Bool {
+        // STEP 1: Check if this subtopic is actually a topic fallback
+        // If the subtopic name matches a topic from TopicsCatalog, it's a fallback
+        for (categoryKey, topicMeta) in TopicsCatalog.catalog {
+            if topicMeta.title == subtopic {
+                // This is a topic fallback, check if it matches the current topic
+                let mappedTopic = mapCategoryToGNews(categoryKey)
+                let isMatch = mappedTopic == topic
+                
+                print("🔍 Topic fallback mapping: '\(subtopic)' (category: '\(categoryKey)') -> GNews topic '\(mappedTopic)' (looking for '\(topic)') = \(isMatch)")
+                
+                return isMatch
+            }
+        }
+        
+        // STEP 2: Regular subtopic mapping (existing logic)
         // Use the actual SubtopicsCatalog to find which category a subtopic belongs to
         for (categoryName, subtopics) in SubtopicsCatalog.catalog {
             if subtopics.contains(where: { $0.title == subtopic }) {
@@ -278,7 +293,7 @@ class ConversationService: ObservableObject {
             }
         }
         
-        print("⚠️ Subtopic '\(subtopic)' not found in any catalog category")
+        print("⚠️ Subtopic '\(subtopic)' not found in any catalog category or topic fallback")
         return false
     }
     
@@ -899,11 +914,44 @@ extension UserPreferences {
         var subtopicsDict: [String: SubtopicDetails] = [:]
         
         print("🔍 [buildSubtopicsWithDetails] Starting to build subtopics...")
+        print("🔍 Selected categories: \(selectedCategories)")
         print("🔍 Selected subcategories: \(selectedSubcategories)")
         print("🔍 Subtopic trends mapping: \(subtopicTrends)")
         print("🔍 Custom topics (backward compatibility): \(customTopics)")
         
-        // Process selected subtopics
+        // STEP 1: Check for topics without subtopics and add topic fallback
+        for categoryName in selectedCategories {
+            let categoryKey = mapCategoryNameToKey(categoryName)
+            print("🔍 [buildSubtopicsWithDetails] Checking category: '\(categoryName)' (key: '\(categoryKey)')")
+            
+            // Get all possible subtopics for this category
+            let availableSubtopics = SubtopicsCatalog.getSubtopicTitles(for: categoryKey)
+            
+            // Check if user selected any subtopics from this category
+            let selectedSubtopicsForCategory = selectedSubcategories.filter { selectedSubtopic in
+                availableSubtopics.contains(selectedSubtopic)
+            }
+            
+            print("    Available subtopics: \(availableSubtopics)")
+            print("    Selected subtopics for this category: \(selectedSubtopicsForCategory)")
+            
+            // If no subtopics selected for this category, add the topic itself as a subtopic
+            if selectedSubtopicsForCategory.isEmpty {
+                print("    ⚠️ No subtopics selected for '\(categoryName)', adding topic itself as fallback")
+                
+                if let topicMeta = TopicsCatalog.getTopicMeta(for: categoryKey) {
+                    subtopicsDict[topicMeta.title] = SubtopicDetails(
+                        subreddits: topicMeta.subreddits,
+                        queries: [topicMeta.query]
+                    )
+                    print("    ✅ Added topic fallback: '\(topicMeta.title)' with query: '\(topicMeta.query)' and subreddits: \(topicMeta.subreddits)")
+                } else {
+                    print("    ❌ No topic metadata found for '\(categoryKey)' - this shouldn't happen")
+                }
+            }
+        }
+        
+        // STEP 2: Process selected subtopics (existing logic)
         for subtopicName in selectedSubcategories {
             print("🔍 [buildSubtopicsWithDetails] Processing subtopic: '\(subtopicName)'")
             
@@ -969,5 +1017,31 @@ extension UserPreferences {
         }
         
         return subtopicsDict
+    }
+    
+    // Helper method to map category name to key
+    private func mapCategoryNameToKey(_ categoryName: String) -> String {
+        let lowercased = categoryName.lowercased()
+        
+        switch lowercased {
+        case "nation", "nacional", "وطني":
+            return "nation"
+        case "technology", "technologie", "tecnología", "تكنولوجيا":
+            return "technology"
+        case "business", "affaires", "negocios", "أعمال":
+            return "business"
+        case "sports", "deportes", "رياضة":
+            return "sports"
+        case "science", "ciencia", "علوم":
+            return "science"
+        case "health", "santé", "salud", "صحة":
+            return "health"
+        case "entertainment", "divertissement", "entretenimiento", "ترفيه":
+            return "entertainment"
+        case "world", "monde", "mundo", "عالم":
+            return "world"
+        default:
+            return "technology" // fallback
+        }
     }
 }

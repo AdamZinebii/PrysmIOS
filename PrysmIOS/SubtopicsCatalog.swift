@@ -7,6 +7,63 @@ struct SubtopicMeta: Codable, Hashable {
     let subreddits: [String]
 }
 
+// MARK: - Topic Metadata for fallback when no subtopics selected
+struct TopicMeta: Codable, Hashable {
+    let title: String
+    let query: String
+    let subreddits: [String]
+}
+
+// MARK: - Topics Catalog (for when no subtopics are selected)
+struct TopicsCatalog {
+    static let catalog: [String: TopicMeta] = [
+        "nation": TopicMeta(
+            title: "Nation",
+            query: "national politics OR government OR domestic policy",
+            subreddits: ["politics", "worldnews", "news"]
+        ),
+        "technology": TopicMeta(
+            title: "Technology",
+            query: "technology OR tech news OR innovation",
+            subreddits: ["technology", "gadgets", "programming"]
+        ),
+        "business": TopicMeta(
+            title: "Business",
+            query: "business news OR economy OR finance",
+            subreddits: ["business", "investing", "economics"]
+        ),
+        "science": TopicMeta(
+            title: "Science",
+            query: "scientific research OR breakthrough OR discovery",
+            subreddits: ["science", "futurology", "space"]
+        ),
+        "health": TopicMeta(
+            title: "Health",
+            query: "health news OR medical breakthrough OR healthcare",
+            subreddits: ["medicine", "health", "publichealth"]
+        ),
+        "sports": TopicMeta(
+            title: "Sports",
+            query: "sports news OR athletic competition OR championship",
+            subreddits: ["sports", "soccer", "nba"]
+        ),
+        "entertainment": TopicMeta(
+            title: "Entertainment",
+            query: "entertainment news OR movies OR music OR celebrities",
+            subreddits: ["entertainment", "movies", "music"]
+        ),
+        "world": TopicMeta(
+            title: "World",
+            query: "world news OR international OR global affairs",
+            subreddits: ["worldnews", "geopolitics", "europe"]
+        )
+    ]
+    
+    static func getTopicMeta(for categoryKey: String) -> TopicMeta? {
+        return catalog[categoryKey]
+    }
+}
+
 // MARK: - Subtopics Catalog
 struct SubtopicsCatalog {
     static let catalog: [String: [SubtopicMeta]] = [
