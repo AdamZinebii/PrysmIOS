@@ -1,0 +1,287 @@
+"News Feed" = "Actualités";
+"News Interests" = "Centres d'intérêt";
+"Research Topics (2/2)" = "Explorations Thématiques (2/2)";
+"Settings" = "Préférences";
+"Personal Information" = "Profil Personnel";
+"Welcome to Prysm" = "Bienvenue dans l'univers Prysm";
+"Create Prysm Account" = "Rejoins Prysm";
+"Summary" = "Synthèse";
+"Highlights" = "Articles Résumés";
+"Key Highlights" = "Moments Forts";
+"Loading highlights..." = "Chargement des essentiels...";
+"Error loading highlights" = "Échec du chargement des essentiels";
+"No highlights available" = "Aucun contenu marquant disponible";
+"Voir l'article" = "Lire l'article";
+"Show more" = "Voir plus";
+"Show less" = "Réduire";
+
+// Boutons et actions
+"Next: Research & Details (%d/%d topics)" = "Suivant : Recherche & Détails (%d/%d sujets)";
+"Save Preferences & Finish" = "Enregistrer les préférences et terminer";
+"Update My News Preferences" = "Mettre à jour mes préférences d'actualités";
+"Refresh News Feed" = "Actualiser le fil d'actualités";
+"Generate New Summary Now" = "Générer un nouveau résumé maintenant";
+"Sign Out" = "Se déconnecter";
+"Done" = "Terminé";
+"Cancel" = "Annuler";
+"Retry" = "Réessayer";
+"Refresh" = "Actualiser";
+
+// Messages d'état
+"Loading news..." = "Chargement des actualités...";
+"Error loading news" = "Erreur de chargement des actualités";
+"No news available" = "Aucune actualité disponible";
+"Saving Preferences..." = "Enregistrement des préférences...";
+"Loading preferences..." = "Chargement des préférences...";
+
+// Sections et en-têtes
+"Language Preference" = "Préférence de langue";
+"News & Research Preferences" = "Préférences d'actualités et de recherche";
+"News Actions" = "Actions d'actualités";
+"Account" = "Compte";
+
+// Niveaux de détail
+"Quick overview" = "Aperçu rapide";
+"Key details" = "Détails clés";
+"In-depth" = "Couverture approfondie";
+
+// Catégories de sujets
+"Knowledge & Innovation" = "Savoir & Innovation";
+"Society & Culture" = "Société & Culture";
+"Economy & Business" = "Économie & Business";
+"Global Affairs" = "Affaires Internationales";
+"Science & Nature" = "Science & Nature";
+"Technology & Digital" = "Technologie & Digital";
+"Governance & Law" = "Gouvernance & Droit";
+"Media & Arts" = "Médias & Arts";
+"Sports & Lifestyle" = "Sports & Mode de Vie";
+"Emerging Themes" = "Thèmes Émergents";
+
+// Messages de configuration
+"Choose your preferred language" = "Choisissez votre langue préférée";
+"Add up to %d topics you want daily updates on" = "Ajoutez jusqu'à %d sujets pour lesquels vous souhaitez des mises à jour quotidiennes";
+"Add up to %d specific topics for real-time updates" = "Ajoutez jusqu'à %d sujets spécifiques pour des mises à jour en temps réel";
+"How much detail?" = "Quel niveau de détail ?";
+"Add another topic" = "Ajouter un autre sujet";
+"Remove this %@" = "Supprimer ce %@";
+
+// Messages d'authentification
+"First Name" = "Prénom";
+"Surname" = "Nom";
+"Age (Optional)" = "Âge (Optionnel)";
+"Your personalized news companion" = "Votre compagnon d'actualités personnalisé"; 
+
+/* 
+   Localizable.strings (Français)
+   PrysmIOS
+   
+   Catégories et Sous-catégories GNews
+*/
+
+// MARK: - Catégories
+"category.general" = "Général";
+"category.world" = "Monde";
+"category.nation" = "National";
+"category.business" = "Économie";
+"category.technology" = "Technologie";
+"category.entertainment" = "Divertissement";
+"category.sports" = "Sports";
+"category.science" = "Science";
+"category.health" = "Santé";
+
+// MARK: - Sous-catégories Général
+"subcategory.breaking_news" = "Actualités de dernière minute";
+"subcategory.trending" = "Sujets tendance";
+"subcategory.local" = "Actualités locales";
+"subcategory.international" = "Actualités internationales";
+
+// MARK: - Sous-catégories Monde
+"subcategory.europe" = "Europe";
+"subcategory.asia" = "Asie";
+"subcategory.americas" = "Amériques";
+"subcategory.africa" = "Afrique";
+"subcategory.middle_east" = "Moyen-Orient";
+
+// MARK: - Sous-catégories National
+"subcategory.politics" = "Politique";
+"subcategory.government" = "Gouvernement";
+"subcategory.elections" = "Élections";
+"subcategory.policy" = "Politique publique";
+
+// MARK: - Sous-catégories Économie
+"subcategory.markets" = "Marchés";
+"subcategory.economy" = "Économie";
+"subcategory.finance" = "Finance";
+"subcategory.startups" = "Start-ups";
+"subcategory.cryptocurrency" = "Cryptomonnaie";
+
+// MARK: - Sous-catégories Technologie
+"subcategory.ai" = "Intelligence Artificielle";
+"subcategory.mobile" = "Mobile";
+"subcategory.software" = "Logiciels";
+"subcategory.gadgets" = "Gadgets";
+"subcategory.cybersecurity" = "Cybersécurité";
+
+// MARK: - Sous-catégories Divertissement
+"subcategory.movies" = "Cinéma";
+"subcategory.music" = "Musique";
+"subcategory.tv_shows" = "Séries TV";
+"subcategory.celebrities" = "Célébrités";
+"subcategory.gaming" = "Jeux vidéo";
+
+// MARK: - Sous-catégories Sports
+"subcategory.football" = "Football américain";
+"subcategory.basketball" = "Basketball";
+"subcategory.soccer" = "Football";
+"subcategory.tennis" = "Tennis";
+"subcategory.olympics" = "Jeux Olympiques";
+
+// MARK: - Sous-catégories Science
+"subcategory.space" = "Espace";
+"subcategory.environment" = "Environnement";
+"subcategory.research" = "Recherche";
+"subcategory.innovation" = "Innovation";
+"subcategory.climate" = "Climat";
+
+// MARK: - Sous-catégories Santé
+"subcategory.medicine" = "Médecine";
+"subcategory.fitness" = "Fitness";
+"subcategory.mental_health" = "Santé mentale";
+"subcategory.nutrition" = "Nutrition";
+"subcategory.pandemic" = "Pandémie";
+
+// MARK: - Interface Préférences
+"preferences.title" = "Préférences d'actualités";
+"preferences.choose_interests" = "Choisissez vos centres d'intérêt";
+"preferences.refine_selection" = "Affinez votre sélection";
+"preferences.customize_feed" = "Personnalisez votre flux";
+"preferences.final_settings" = "Paramètres finaux";
+"preferences.save" = "Enregistrer les préférences";
+"preferences.continue" = "Continuer";
+"preferences.back" = "Retour";
+"preferences.select_topics" = "Sélectionnez les sujets que vous souhaitez suivre";
+"preferences.pick_areas" = "Choisissez des domaines spécifiques dans vos centres d'intérêt";
+"preferences.add_custom" = "Ajoutez des sujets personnalisés et définissez vos préférences";
+"preferences.configure_frequency" = "Configurez la fréquence de mise à jour et le niveau de détail";
+
+// MARK: - Fréquence de mise à jour
+"frequency.daily" = "Quotidien";
+"frequency.twice_daily" = "Deux fois par jour";
+"frequency.weekly" = "Hebdomadaire";
+
+// MARK: - Niveau de détail
+"detail.light" = "Léger";
+"detail.medium" = "Moyen";
+"detail.detailed" = "Détaillé";
+
+// MARK: - Étape Sous-catégories
+"preferences.no_categories_selected" = "Aucune Catégorie Sélectionnée";
+"preferences.go_back_select_categories" = "Veuillez revenir à l'étape précédente et sélectionner au moins une catégorie";
+"preferences.subcategories_instruction" = "Sélectionnez des domaines spécifiques dans vos catégories choisies";
+"preferences.subcategories_optional" = "Vous pouvez ignorer cette étape si vous préférez une couverture générale";
+"preferences.selected_count" = "%d sélectionné(s)";
+"preferences.select_all" = "Tout Sélectionner";
+"preferences.deselect_all" = "Tout Désélectionner";
+"preferences.trending_now" = "Tendances Actuelles";
+"preferences.loading_trending" = "Chargement des sujets tendance...";
+
+// MARK: - Étape Sujets Tendance
+"preferences.trending_topics" = "Sujets Tendance";
+"preferences.select_trending" = "Sélectionnez les sujets tendance qui vous intéressent";
+"preferences.no_subtopics_selected" = "Aucun Sous-sujet Sélectionné";
+"preferences.go_back_select_subtopics" = "Veuillez revenir à l'étape précédente et sélectionner au moins un sous-sujet";
+"preferences.trending_instruction" = "Basé sur vos sous-sujets sélectionnés, voici les sujets tendance actuels";
+"preferences.trending_optional" = "Vous pouvez ignorer cette étape si vous préférez vous en tenir à vos sous-sujets sélectionnés";
+"preferences.loading_trending_topics" = "Chargement des sujets tendance...";
+"preferences.analyzing_subtopics" = "Analyse de vos sous-sujets sélectionnés";
+"preferences.selected_trending" = "Sujets Tendance Sélectionnés";
+"preferences.discover_trending" = "Découvrir les Sujets Tendance";
+"preferences.trending_description" = "Nous analyserons les actualités et réseaux sociaux actuels pour trouver les sujets tendance liés à vos intérêts";
+"preferences.load_trending" = "Charger les Sujets Tendance";
+
+// MARK: - Étape Personnalisation
+"preferences.add_custom_topics" = "Ajouter des Sujets Personnalisés";
+"preferences.enter_custom_topic" = "Entrez un sujet personnalisé...";
+"preferences.add" = "Ajouter";
+"preferences.your_custom_topics" = "Vos Sujets Personnalisés :";
+"preferences.remove" = "Supprimer";
+"preferences.preferred_language" = "Langue Préférée";
+"preferences.language" = "Langue";
+
+// MARK: - Étape Paramètres
+"preferences.country" = "Pays";
+"preferences.select_country" = "Sélectionner un Pays";
+"preferences.update_frequency" = "Fréquence de Mise à Jour";
+"preferences.detail_level" = "Niveau de Détail";
+
+// MARK: - Sélection Langue & Pays
+"preferences.language_country" = "Langue et Pays";
+"preferences.setup_language_country" = "Définissez vos préférences de langue et de pays";
+"preferences.select_language" = "Sélectionner la Langue";
+"preferences.choose_country" = "Choisissez votre pays";
+"preferences.search_countries" = "Rechercher des pays...";
+"preferences.cancel" = "Annuler";
+
+// MARK: - Bienvenue et Actions de Base
+"welcome_to_prysm" = "Bienvenue dans Prysm";
+"setup_language_country" = "Définissez vos préférences de langue et de pays";
+"select_language" = "Sélectionner la Langue";
+"select_country" = "Sélectionner un Pays";
+"choose_country" = "Choisissez votre pays";
+"continue" = "Continuer";
+
+// MARK: - Fin de Conversation
+"conversation.end_title" = "Excellente conversation !";
+"conversation.end_subtitle" = "Nous avons appris vos centres d'intérêt. Que souhaitez-vous faire ensuite ?";
+"conversation.continue_button" = "Continuer la Conversation";
+"conversation.schedule_button" = "Programmer mes Actualités";
+
+// MARK: - Fin de Conversation (clés LanguageManager)
+"conversation_complete" = "Excellente conversation !";
+"conversation_complete_description" = "Nous avons appris vos centres d'intérêt. Que souhaitez-vous faire ensuite ?";
+"continue_conversation" = "Continuer la Conversation";
+"refine_interests_more" = "Affinez encore plus vos intérêts";
+"schedule_news" = "Programmer mes Actualités";
+"setup_daily_schedule" = "Configurez votre programme d'actualités quotidien";
+"great_progress" = "Excellent Progrès !";
+"what_next" = "Que souhaitez-vous faire ensuite ?";
+
+// MARK: - Programmation Quotidienne
+"schedule.title" = "Programmer vos Actualités";
+"schedule.subtitle" = "Quand souhaitez-vous recevoir vos mises à jour d'actualités personnalisées ?";
+"schedule.notification_times" = "Heures de Notification";
+"schedule.add_time" = "Ajouter une Heure";
+"schedule.frequency" = "Fréquence";
+"schedule.reading_duration" = "Durée de Lecture";
+"schedule.enable_notifications" = "Activer les Notifications";
+"schedule.save_schedule" = "Enregistrer la Programmation";
+"schedule.skip" = "Ignorer pour l'instant";
+
+// MARK: - Programmation Quotidienne (clés LanguageManager)
+"schedule_your_news" = "Programmer vos Actualités";
+"schedule_description" = "Quand souhaitez-vous recevoir vos mises à jour d'actualités personnalisées ?";
+"update_frequency" = "Fréquence de Mise à Jour";
+"preferred_times" = "Heures Préférées";
+"add_time" = "Ajouter une Heure";
+"add_another_time" = "Ajouter une Autre Heure";
+"reading_duration" = "Durée de Lecture";
+"notifications" = "Notifications";
+"push_notifications" = "Notifications Push";
+"notifications_description" = "Être notifié quand vos actualités sont prêtes";
+"complete_setup" = "Terminer la Configuration";
+"daily_schedule" = "Programme Quotidien";
+"back" = "Retour";
+
+// MARK: - Conversation IA
+"preferences.ai_conversation_title" = "Personnaliser avec l'Assistant IA";
+"preferences.ai_conversation_description" = "Notre IA peut vous aider à découvrir des sujets plus spécifiques basés sur vos intérêts";
+"preferences.start_ai_conversation" = "Commencer la Conversation avec l'IA";
+"preferences.type_message" = "Tapez votre message...";
+"preferences.send" = "Envoyer";
+"preferences.discovered_topics" = "Sujets Découverts :";
+
+// MARK: - Sélection d'Heure de Programmation
+"preferences.time" = "Heure";
+"preferences.first_time" = "Première heure";
+"preferences.second_time" = "Deuxième heure";
+"preferences.day" = "Jour";

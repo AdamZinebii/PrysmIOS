@@ -1,0 +1,288 @@
+/* 
+   Localizable.strings (العربية)
+   PrysmIOS
+   
+   فئات وفئات فرعية GNews
+*/
+
+// MARK: - الفئات
+"category.general" = "عام";
+"category.world" = "العالم";
+"category.nation" = "وطني";
+"category.business" = "أعمال";
+"category.technology" = "تكنولوجيا";
+"category.entertainment" = "ترفيه";
+"category.sports" = "رياضة";
+"category.science" = "علوم";
+"category.health" = "صحة";
+
+// MARK: - الفئات الفرعية العامة
+"subcategory.breaking_news" = "أخبار عاجلة";
+"subcategory.trending" = "المواضيع الرائجة";
+"subcategory.local" = "أخبار محلية";
+"subcategory.international" = "أخبار دولية";
+
+// MARK: - الفئات الفرعية للعالم
+"subcategory.europe" = "أوروبا";
+"subcategory.asia" = "آسيا";
+"subcategory.americas" = "الأمريكتان";
+"subcategory.africa" = "أفريقيا";
+"subcategory.middle_east" = "الشرق الأوسط";
+
+// MARK: - الفئات الفرعية الوطنية
+"subcategory.politics" = "سياسة";
+"subcategory.government" = "حكومة";
+"subcategory.elections" = "انتخابات";
+"subcategory.policy" = "السياسة العامة";
+
+// MARK: - الفئات الفرعية للأعمال
+"subcategory.markets" = "الأسواق";
+"subcategory.economy" = "اقتصاد";
+"subcategory.finance" = "مالية";
+"subcategory.startups" = "الشركات الناشئة";
+"subcategory.cryptocurrency" = "العملات المشفرة";
+
+// MARK: - الفئات الفرعية للتكنولوجيا
+"subcategory.ai" = "الذكاء الاصطناعي";
+"subcategory.mobile" = "الهاتف المحمول";
+"subcategory.software" = "البرمجيات";
+"subcategory.gadgets" = "الأجهزة";
+"subcategory.cybersecurity" = "الأمن السيبراني";
+
+// MARK: - الفئات الفرعية للترفيه
+"subcategory.movies" = "أفلام";
+"subcategory.music" = "موسيقى";
+"subcategory.tv_shows" = "المسلسلات التلفزيونية";
+"subcategory.celebrities" = "المشاهير";
+"subcategory.gaming" = "ألعاب الفيديو";
+
+// MARK: - الفئات الفرعية للرياضة
+"subcategory.football" = "كرة القدم الأمريكية";
+"subcategory.basketball" = "كرة السلة";
+"subcategory.soccer" = "كرة القدم";
+"subcategory.tennis" = "التنس";
+"subcategory.olympics" = "الألعاب الأولمبية";
+
+// MARK: - الفئات الفرعية للعلوم
+"subcategory.space" = "الفضاء";
+"subcategory.environment" = "البيئة";
+"subcategory.research" = "البحث";
+"subcategory.innovation" = "الابتكار";
+"subcategory.climate" = "المناخ";
+
+// MARK: - الفئات الفرعية للصحة
+"subcategory.medicine" = "الطب";
+"subcategory.fitness" = "اللياقة البدنية";
+"subcategory.mental_health" = "الصحة النفسية";
+"subcategory.nutrition" = "التغذية";
+"subcategory.pandemic" = "الجائحة";
+
+// MARK: - واجهة التفضيلات
+"preferences.title" = "تفضيلات الأخبار";
+"preferences.choose_interests" = "اختر اهتماماتك";
+"preferences.refine_selection" = "حسّن اختيارك";
+"preferences.customize_feed" = "خصص موجزك";
+"preferences.final_settings" = "الإعدادات النهائية";
+"preferences.save" = "حفظ التفضيلات";
+"preferences.continue" = "متابعة";
+"preferences.back" = "رجوع";
+"preferences.select_topics" = "اختر المواضيع التي تريد متابعتها";
+"preferences.pick_areas" = "اختر مجالات محددة ضمن اهتماماتك";
+"preferences.add_custom" = "أضف مواضيع مخصصة وحدد تفضيلاتك";
+"preferences.configure_frequency" = "اضبط تكرار التحديث ومستوى التفاصيل";
+
+// MARK: - تكرار التحديث
+"frequency.daily" = "يومي";
+"frequency.twice_daily" = "مرتين في اليوم";
+"frequency.weekly" = "أسبوعي";
+
+// MARK: - مستوى التفاصيل
+"detail.light" = "خفيف";
+"detail.medium" = "متوسط";
+"detail.detailed" = "مفصل";
+
+// MARK: - خطوة الفئات الفرعية
+"preferences.no_categories_selected" = "لم يتم اختيار أي فئة";
+"preferences.go_back_select_categories" = "يرجى العودة إلى الخطوة السابقة واختيار فئة واحدة على الأقل";
+"preferences.subcategories_instruction" = "اختر مجالات محددة ضمن الفئات التي اخترتها";
+"preferences.subcategories_optional" = "يمكنك تخطي هذه الخطوة إذا كنت تفضل التغطية العامة";
+"preferences.selected_count" = "%d محدد";
+"preferences.select_all" = "تحديد الكل";
+"preferences.deselect_all" = "إلغاء تحديد الكل";
+"preferences.trending_now" = "الرائج الآن";
+"preferences.loading_trending" = "جاري تحميل المواضيع الرائجة...";
+
+// MARK: - خطوة المواضيع الرائجة
+"preferences.trending_topics" = "المواضيع الرائجة";
+"preferences.select_trending" = "اختر المواضيع الرائجة التي تهمك";
+"preferences.no_subtopics_selected" = "لم يتم اختيار أي موضوع فرعي";
+"preferences.go_back_select_subtopics" = "يرجى العودة إلى الخطوة السابقة واختيار موضوع فرعي واحد على الأقل";
+"preferences.trending_instruction" = "بناءً على المواضيع الفرعية التي اخترتها، إليك المواضيع الرائجة الحالية";
+"preferences.trending_optional" = "يمكنك تخطي هذه الخطوة إذا كنت تفضل الالتزام بمواضيعك الفرعية المختارة";
+"preferences.loading_trending_topics" = "جاري تحميل المواضيع الرائجة...";
+"preferences.analyzing_subtopics" = "جاري تحليل مواضيعك الفرعية المختارة";
+"preferences.selected_trending" = "المواضيع الرائجة المختارة";
+"preferences.discover_trending" = "اكتشف المواضيع الرائجة";
+"preferences.trending_description" = "سنحلل الأخبار الحالية ووسائل التواصل الاجتماعي للعثور على المواضيع الرائجة المتعلقة باهتماماتك";
+"preferences.load_trending" = "تحميل المواضيع الرائجة";
+
+// MARK: - خطوة التخصيص
+"preferences.add_custom_topics" = "إضافة مواضيع مخصصة";
+"preferences.enter_custom_topic" = "أدخل موضوعاً مخصصاً...";
+"preferences.add" = "إضافة";
+"preferences.your_custom_topics" = "مواضيعك المخصصة:";
+"preferences.remove" = "إزالة";
+"preferences.preferred_language" = "اللغة المفضلة";
+"preferences.language" = "اللغة";
+
+// MARK: - خطوة الإعدادات
+"preferences.country" = "البلد";
+"preferences.select_country" = "اختر البلد";
+"preferences.update_frequency" = "تكرار التحديث";
+"preferences.detail_level" = "مستوى التفاصيل";
+
+// MARK: - اختيار اللغة والبلد
+"preferences.language_country" = "اللغة والبلد";
+"preferences.setup_language_country" = "حدد تفضيلات اللغة والبلد";
+"preferences.select_language" = "اختر اللغة";
+"preferences.choose_country" = "اختر بلدك";
+"preferences.search_countries" = "البحث عن البلدان...";
+"preferences.cancel" = "إلغاء";
+
+// MARK: - الترحيب والإجراءات الأساسية
+"welcome_to_prysm" = "مرحباً بك في بريزم";
+"setup_language_country" = "حدد تفضيلات اللغة والبلد";
+"select_language" = "اختر اللغة";
+"select_country" = "اختر البلد";
+"choose_country" = "اختر بلدك";
+"continue" = "متابعة";
+
+// MARK: - نهاية المحادثة
+"conversation.end_title" = "محادثة ممتازة!";
+"conversation.end_subtitle" = "لقد تعلمنا عن اهتماماتك. ماذا تريد أن تفعل بعد ذلك؟";
+"conversation.continue_button" = "متابعة المحادثة";
+"conversation.schedule_button" = "جدولة أخباري";
+
+// MARK: - نهاية المحادثة (مفاتيح LanguageManager)
+"conversation_complete" = "محادثة ممتازة!";
+"conversation_complete_description" = "لقد تعلمنا عن اهتماماتك. ماذا تريد أن تفعل بعد ذلك؟";
+"continue_conversation" = "متابعة المحادثة";
+"refine_interests_more" = "حسّن اهتماماتك أكثر";
+"schedule_news" = "جدولة أخباري";
+"setup_daily_schedule" = "إعداد جدولك اليومي للأخبار";
+"great_progress" = "تقدم ممتاز!";
+"what_next" = "ماذا تريد أن تفعل بعد ذلك؟";
+
+// MARK: - الجدولة اليومية
+"schedule.title" = "جدولة أخبارك";
+"schedule.subtitle" = "متى تريد أن تتلقى تحديثات الأخبار المخصصة؟";
+"schedule.notification_times" = "أوقات الإشعارات";
+"schedule.add_time" = "إضافة وقت";
+"schedule.frequency" = "التكرار";
+"schedule.reading_duration" = "مدة القراءة";
+"schedule.enable_notifications" = "تفعيل الإشعارات";
+"schedule.save_schedule" = "حفظ الجدولة";
+"schedule.skip" = "تخطي الآن";
+
+// MARK: - الجدولة اليومية (مفاتيح LanguageManager)
+"schedule_your_news" = "جدولة أخبارك";
+"schedule_description" = "متى تريد أن تتلقى تحديثات الأخبار المخصصة؟";
+"update_frequency" = "تكرار التحديث";
+"preferred_times" = "الأوقات المفضلة";
+"add_time" = "إضافة وقت";
+"add_another_time" = "إضافة وقت آخر";
+"reading_duration" = "مدة القراءة";
+"notifications" = "الإشعارات";
+"push_notifications" = "الإشعارات الفورية";
+"notifications_description" = "احصل على إشعار عندما تكون أخبارك جاهزة";
+"complete_setup" = "إكمال الإعداد";
+"daily_schedule" = "الجدول اليومي";
+"back" = "رجوع";
+
+// MARK: - محادثة الذكاء الاصطناعي
+"preferences.ai_conversation_title" = "التخصيص مع مساعد الذكاء الاصطناعي";
+"preferences.ai_conversation_description" = "يمكن لذكائنا الاصطناعي مساعدتك في اكتشاف مواضيع أكثر تحديداً بناءً على اهتماماتك";
+"preferences.start_ai_conversation" = "بدء المحادثة مع الذكاء الاصطناعي";
+"preferences.type_message" = "اكتب رسالتك...";
+"preferences.send" = "إرسال";
+"preferences.discovered_topics" = "المواضيع المكتشفة:";
+
+// MARK: - اختيار وقت الجدولة
+"preferences.time" = "الوقت";
+"preferences.first_time" = "الوقت الأول";
+"preferences.second_time" = "الوقت الثاني";
+"preferences.day" = "اليوم";
+
+// Titres et sous-titres
+"News Feed" = "خلاصة الأخبار";
+"News Interests" = "اهتمامات الأخبار";
+"Research Topics (2/2)" = "مواضيع البحث (2/2)";
+"Settings" = "الإعدادات";
+"Personal Information" = "المعلومات الشخصية";
+"Welcome to Prysm" = "مرحباً بك في بريزم";
+"Create Prysm Account" = "إنشاء حساب بريزم";
+"Summary" = "ملخص";
+"Highlights" = "أبرز النقاط";
+"Key Highlights" = "النقاط الرئيسية";
+"Loading highlights..." = "جاري تحميل النقاط البارزة...";
+"Error loading highlights" = "خطأ في تحميل النقاط البارزة";
+"No highlights available" = "لا توجد نقاط بارزة متاحة";
+"Voir l'article" = "عرض المقال";
+"Show more" = "عرض المزيد";
+"Show less" = "عرض أقل";
+
+// Boutons et actions
+"Next: Research & Details (%d/%d topics)" = "التالي: البحث والتفاصيل (%d/%d مواضيع)";
+"Save Preferences & Finish" = "حفظ التفضيلات وإنهاء";
+"Update My News Preferences" = "تحديث تفضيلات الأخبار";
+"Refresh News Feed" = "تحديث خلاصة الأخبار";
+"Generate New Summary Now" = "إنشاء ملخص جديد الآن";
+"Sign Out" = "تسجيل الخروج";
+"Done" = "تم";
+"Cancel" = "إلغاء";
+"Retry" = "إعادة المحاولة";
+"Refresh" = "تحديث";
+
+// Messages d'état
+"Loading news..." = "جاري تحميل الأخبار...";
+"Error loading news" = "خطأ في تحميل الأخبار";
+"No news available" = "لا توجد أخبار متاحة";
+"Saving Preferences..." = "جاري حفظ التفضيلات...";
+"Loading preferences..." = "جاري تحميل التفضيلات...";
+
+// Sections et en-têtes
+"Language Preference" = "تفضيل اللغة";
+"News & Research Preferences" = "تفضيلات الأخبار والبحث";
+"News Actions" = "إجراءات الأخبار";
+"Account" = "الحساب";
+
+// Niveaux de détail
+"Quick overview" = "نظرة سريعة";
+"Key details" = "تفاصيل رئيسية";
+"In-depth" = "تحليل متعمق";
+
+// Catégories de sujets
+"Knowledge & Innovation" = "المعرفة والابتكار";
+"Society & Culture" = "المجتمع والثقافة";
+"Economy & Business" = "الاقتصاد والأعمال";
+"Global Affairs" = "الشؤون العالمية";
+"Science & Nature" = "العلوم والطبيعة";
+"Technology & Digital" = "التكنولوجيا والرقمنة";
+"Governance & Law" = "الحوكمة والقانون";
+"Media & Arts" = "الإعلام والفنون";
+"Sports & Lifestyle" = "الرياضة ونمط الحياة";
+"Emerging Themes" = "المواضيع الناشئة";
+
+// Messages de configuration
+"Choose your preferred language" = "اختر لغتك المفضلة";
+"Add up to %d topics you want daily updates on" = "أضف حتى %d مواضيع تريد تحديثات يومية عنها";
+"Add up to %d specific topics for real-time updates" = "أضف حتى %d مواضيع محددة للحصول على تحديثات فورية";
+"How much detail?" = "ما مستوى التفاصيل؟";
+"Add another topic" = "إضافة موضوع آخر";
+"Remove this %@" = "إزالة هذا %@";
+
+// Messages d'authentification
+"First Name" = "الاسم الأول";
+"Surname" = "اسم العائلة";
+"Age (Optional)" = "العمر (اختياري)";
+"Your personalized news companion" = "رفيقك الشخصي للأخبار"; 

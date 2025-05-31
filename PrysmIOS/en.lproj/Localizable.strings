@@ -1,0 +1,251 @@
+"Language Preference" = "Language Preference";
+"Choose your preferred language" = "Choose your preferred language";
+"News & Research Preferences" = "News & Research Preferences";
+"Update My News Preferences" = "Update My News Preferences";
+"News Actions" = "News Actions";
+"Refresh News Feed" = "Refresh News Feed";
+"Generate New Summary Now" = "Generate New Summary Now";
+"Account" = "Account";
+"Sign Out" = "Sign Out";
+"Done" = "Done";
+"Settings" = "Settings";
+"News Feed" = "News Feed";
+"Loading news..." = "Loading news...";
+"Error loading news" = "Error loading news";
+"No news available" = "No news available";
+"Retry" = "Retry";
+"Refresh" = "Refresh";
+"Summary" = "Summary";
+"Highlights" = "Highlights";
+"Key Highlights" = "Key Highlights";
+"Loading highlights..." = "Loading highlights...";
+"Error loading highlights" = "Error loading highlights";
+"No highlights available" = "No highlights available";
+"Voir l'article" = "View article";
+"Show more" = "Show more";
+"Show less" = "Show less"; 
+
+/* 
+   Localizable.strings (English)
+   PrysmIOS
+   
+   GNews Categories and Subcategories
+*/
+
+// MARK: - Categories
+"category.general" = "General";
+"category.world" = "World";
+"category.nation" = "Nation";
+"category.business" = "Business";
+"category.technology" = "Technology";
+"category.entertainment" = "Entertainment";
+"category.sports" = "Sports";
+"category.science" = "Science";
+"category.health" = "Health";
+
+// MARK: - General Subcategories
+"subcategory.breaking_news" = "Breaking News";
+"subcategory.trending" = "Trending Topics";
+"subcategory.local" = "Local News";
+"subcategory.international" = "International News";
+
+// MARK: - World Subcategories
+"subcategory.europe" = "Europe";
+"subcategory.asia" = "Asia";
+"subcategory.americas" = "Americas";
+"subcategory.africa" = "Africa";
+"subcategory.middle_east" = "Middle East";
+
+// MARK: - Nation Subcategories
+"subcategory.politics" = "Politics";
+"subcategory.government" = "Government";
+"subcategory.elections" = "Elections";
+"subcategory.policy" = "Policy";
+
+// MARK: - Business Subcategories
+"subcategory.markets" = "Markets";
+"subcategory.economy" = "Economy";
+"subcategory.finance" = "Finance";
+"subcategory.startups" = "Startups";
+"subcategory.cryptocurrency" = "Cryptocurrency";
+
+// MARK: - Technology Subcategories
+"subcategory.ai" = "Artificial Intelligence";
+"subcategory.mobile" = "Mobile";
+"subcategory.software" = "Software";
+"subcategory.gadgets" = "Gadgets";
+"subcategory.cybersecurity" = "Cybersecurity";
+
+// MARK: - Entertainment Subcategories
+"subcategory.movies" = "Movies";
+"subcategory.music" = "Music";
+"subcategory.tv_shows" = "TV Shows";
+"subcategory.celebrities" = "Celebrities";
+"subcategory.gaming" = "Gaming";
+
+// MARK: - Sports Subcategories
+"subcategory.football" = "Football";
+"subcategory.basketball" = "Basketball";
+"subcategory.soccer" = "Soccer";
+"subcategory.tennis" = "Tennis";
+"subcategory.olympics" = "Olympics";
+
+// MARK: - Science Subcategories
+"subcategory.space" = "Space";
+"subcategory.environment" = "Environment";
+"subcategory.research" = "Research";
+"subcategory.innovation" = "Innovation";
+"subcategory.climate" = "Climate";
+
+// MARK: - Health Subcategories
+"subcategory.medicine" = "Medicine";
+"subcategory.fitness" = "Fitness";
+"subcategory.mental_health" = "Mental Health";
+"subcategory.nutrition" = "Nutrition";
+"subcategory.pandemic" = "Pandemic";
+
+// MARK: - Preferences UI
+"preferences.title" = "News Preferences";
+"preferences.choose_interests" = "Choose Your Interests";
+"preferences.refine_selection" = "Refine Your Selection";
+"preferences.customize_feed" = "Customize Your Feed";
+"preferences.final_settings" = "Final Settings";
+"preferences.save" = "Save Preferences";
+"preferences.continue" = "Continue";
+"preferences.back" = "Back";
+"preferences.select_topics" = "Select topics you want to follow";
+"preferences.pick_areas" = "Pick specific areas within your interests";
+"preferences.add_custom" = "Add custom topics and set preferences";
+"preferences.configure_frequency" = "Configure update frequency and detail level";
+
+// MARK: - Update Frequency
+"frequency.daily" = "Daily";
+"frequency.twice_daily" = "Twice Daily";
+"frequency.weekly" = "Weekly";
+
+// MARK: - Detail Level
+"detail.light" = "Light";
+"detail.medium" = "Medium";
+"detail.detailed" = "Detailed";
+
+// MARK: - Subcategories Step
+"preferences.no_categories_selected" = "No Categories Selected";
+"preferences.go_back_select_categories" = "Please go back to the previous step and select at least one category";
+"preferences.subcategories_instruction" = "Select specific areas within your chosen categories";
+"preferences.subcategories_optional" = "You can skip this step if you prefer general coverage";
+"preferences.selected_count" = "%d selected";
+"preferences.select_all" = "Select All";
+"preferences.deselect_all" = "Deselect All";
+"preferences.trending_now" = "Trending Now";
+"preferences.loading_trending" = "Loading trending topics...";
+
+// MARK: - Trending Topics Step
+"preferences.trending_topics" = "Trending Topics";
+"preferences.select_trending" = "Select trending topics that interest you";
+"preferences.no_subtopics_selected" = "No Subtopics Selected";
+"preferences.go_back_select_subtopics" = "Please go back to the previous step and select at least one subtopic";
+"preferences.trending_instruction" = "Based on your selected subtopics, here are the current trending topics";
+"preferences.trending_optional" = "You can skip this step if you prefer to stick with your selected subtopics";
+"preferences.loading_trending_topics" = "Loading trending topics...";
+"preferences.analyzing_subtopics" = "Analyzing your selected subtopics";
+"preferences.selected_trending" = "Selected Trending Topics";
+"preferences.discover_trending" = "Discover Trending Topics";
+"preferences.trending_description" = "We'll analyze current news and social media to find trending topics related to your interests";
+"preferences.load_trending" = "Load Trending Topics";
+
+// MARK: - Customization Step
+"preferences.add_custom_topics" = "Add Custom Topics";
+"preferences.enter_custom_topic" = "Enter a custom topic...";
+"preferences.add" = "Add";
+"preferences.your_custom_topics" = "Your Custom Topics:";
+"preferences.remove" = "Remove";
+"preferences.preferred_language" = "Preferred Language";
+"preferences.language" = "Language";
+
+// MARK: - Settings Step
+"preferences.country" = "Country";
+"preferences.select_country" = "Select Country";
+"preferences.update_frequency" = "Update Frequency";
+"preferences.detail_level" = "Detail Level";
+
+// MARK: - Language & Country Selection
+"preferences.language_country" = "Language & Country";
+"preferences.setup_language_country" = "Set your language and country preferences";
+"preferences.select_language" = "Select Language";
+"preferences.choose_country" = "Choose your country";
+"preferences.search_countries" = "Search countries...";
+"preferences.cancel" = "Cancel";
+
+// MARK: - Welcome and Basic Actions
+"welcome_to_prysm" = "Welcome to Prysm";
+"setup_language_country" = "Set your language and country preferences";
+"select_language" = "Select Language";
+"select_country" = "Select Country";
+"choose_country" = "Choose your country";
+"continue" = "Continue";
+
+// MARK: - Conversation End
+"conversation.end_title" = "Great conversation!";
+"conversation.end_subtitle" = "We've learned about your interests. What would you like to do next?";
+"conversation.continue_button" = "Continue Conversation";
+"conversation.schedule_button" = "Schedule My News";
+
+// MARK: - Conversation End (LanguageManager keys)
+"conversation_complete" = "Great conversation!";
+"conversation_complete_description" = "We've learned about your interests. What would you like to do next?";
+"continue_conversation" = "Continue Conversation";
+"refine_interests_more" = "Refine your interests even more";
+"schedule_news" = "Schedule My News";
+"setup_daily_schedule" = "Set up your daily news schedule";
+"great_progress" = "Great Progress!";
+"what_next" = "What would you like to do next?";
+
+// MARK: - Daily Scheduling
+"schedule.title" = "Schedule Your News";
+"schedule.subtitle" = "When would you like to receive your personalized news updates?";
+"schedule.notification_times" = "Notification Times";
+"schedule.add_time" = "Add Time";
+"schedule.frequency" = "Frequency";
+"schedule.reading_duration" = "Reading Duration";
+"schedule.enable_notifications" = "Enable Notifications";
+"schedule.save_schedule" = "Save Schedule";
+"schedule.skip" = "Skip for Now";
+
+// MARK: - Daily Scheduling (LanguageManager keys)
+"schedule_your_news" = "Schedule Your News";
+"schedule_description" = "When would you like to receive your personalized news updates?";
+
+// MARK: - Scheduling Time Selection
+"preferences.time" = "Time";
+"preferences.first_time" = "First Time";
+"preferences.second_time" = "Second Time";
+"preferences.day" = "Day";
+"update_frequency" = "Update Frequency";
+"preferred_times" = "Preferred Times";
+"add_time" = "Add Time";
+"add_another_time" = "Add Another Time";
+"reading_duration" = "Reading Duration";
+"notifications" = "Notifications";
+"push_notifications" = "Push Notifications";
+"notifications_description" = "Get notified when your news is ready";
+"complete_setup" = "Complete Setup";
+"daily_schedule" = "Daily Schedule";
+"back" = "Back";
+
+// MARK: - Schedule Frequency
+"schedule.daily" = "Daily";
+"schedule.twice_daily" = "Twice Daily";
+"schedule.weekly" = "Weekly";
+
+// MARK: - Reading Duration
+"duration.short" = "5-10 minutes";
+"duration.medium" = "15-20 minutes";
+"duration.long" = "30+ minutes";
+
+// MARK: - AI Conversation
+"preferences.ai_conversation_title" = "Personalize with AI Assistant";
+"preferences.ai_conversation_description" = "Our AI can help you discover more specific topics based on your interests";
+"preferences.start_ai_conversation" = "Start Conversation with AI";
+"preferences.type_message" = "Type your message...";
+"preferences.send" = "Send";
+"preferences.discovered_topics" = "Discovered Topics:"; 
