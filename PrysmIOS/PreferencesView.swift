@@ -101,6 +101,78 @@ struct UserPreferences {
     var dailyTime: Date = Calendar.current.date(from: DateComponents(hour: 9, minute: 0)) ?? Date()
     var weeklyDay: Int = 1 // Monday
     var weeklyTime: Date = Calendar.current.date(from: DateComponents(hour: 9, minute: 0)) ?? Date()
+    
+    // Timezone information (NEW)
+    var userTimezone: String = TimeZone.current.identifier
+    var lastTimezoneUpdate: Date = Date()
+    
+    /// Create a display string for the current scheduling preferences
+    func getScheduleDisplayString() -> String {
+        let timeZone = TimeZone(identifier: userTimezone) ?? TimeZone.current
+        let timezoneName = timeZone.localizedName(for: .standard, locale: .current) ?? userTimezone
+        
+        switch updateFrequency {
+        case .daily:
+            let components = Calendar.current.dateComponents([.hour, .minute], from: dailyTime)
+            let timeString = String(format: "%02d:%02d", components.hour ?? 9, components.minute ?? 0)
+            return "Daily at \(timeString) (\(timezoneName))"
+        case .weekly:
+            let components = Calendar.current.dateComponents([.hour, .minute], from: weeklyTime)
+            let timeString = String(format: "%02d:%02d", components.hour ?? 9, components.minute ?? 0)
+            let dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+            let dayName = (weeklyDay >= 1 && weeklyDay <= 7) ? dayNames[weeklyDay - 1] : "Monday"
+            return "\(dayName)s at \(timeString) (\(timezoneName))"
+        }
+    }
+    
+    /// Load scheduling preferences from saved database format
+    mutating func loadSchedulingPreferences(from data: [String: Any]) {
+        // Load the type
+        if let type = data["type"] as? String {
+            updateFrequency = type == "weekly" ? .weekly : .daily
+        }
+        
+        // Load timezone information
+        if let timezone = data["user_timezone"] as? String {
+            userTimezone = timezone
+        }
+        
+        // Load local time information (preferred over UTC for user preferences)
+        if let localHour = data["local_hour"] as? Int,
+           let localMinute = data["local_minute"] as? Int {
+            
+            // Create a date with the local time
+            let calendar = Calendar.current
+            var components = calendar.dateComponents([.year, .month, .day], from: Date())
+            components.hour = localHour
+            components.minute = localMinute
+            
+            if let date = calendar.date(from: components) {
+                switch updateFrequency {
+                case .daily:
+                    dailyTime = date
+                case .weekly:
+                    weeklyTime = date
+                }
+            }
+        }
+        
+        // Load weekly day if it's a weekly schedule
+        if updateFrequency == .weekly, let day = data["day"] as? String {
+            let dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+            if let index = dayNames.firstIndex(of: day.lowercased()) {
+                weeklyDay = index + 1 // Convert to 1-7 format
+            }
+        }
+        
+        // Update the last timezone update timestamp
+        lastTimezoneUpdate = Date()
+        
+        print("📅 [UserPreferences] Loaded scheduling preferences:")
+        print("    Type: \(updateFrequency.rawValue)")
+        print("    Timezone: \(userTimezone)")
+        print("    Display: \(getScheduleDisplayString())")
+    }
 }
 
 // Mapping structure for Google News categories
@@ -264,6 +336,7 @@ struct PreferencesView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var showingConversation = false
+    @State private var isTrendingTopicsLoading = false  // NEW: Track trending loading state
     
     // Initializer par défaut - mandatory flow (after auth)
     init(isPresented: Binding<Bool>) {
@@ -348,7 +421,8 @@ struct PreferencesView: View {
                         case .trendingTopics:
                             TrendingTopicsStepView(
                                 categories: categories,
-                                preferences: $preferences
+                                preferences: $preferences,
+                                isLoading: $isTrendingTopicsLoading
                             )
                         case .settings:
                             SettingsStepView(preferences: $preferences)
@@ -372,7 +446,7 @@ struct PreferencesView: View {
                         Button("Cancel") {
                             presentationMode.wrappedValue.dismiss()
                         }
-                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                        .foregroundColor(Color(red: 0.5, green: 0.2, blue: 0.8))
                     }
                 }
                 
@@ -451,7 +525,7 @@ struct PreferencesView: View {
                         }
                     }
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(DisablablePrimaryButtonStyle(isDisabled: !canProceed || isSaving))
                 .disabled(!canProceed || isSaving)
             }
             .padding(.horizontal, 20)
@@ -470,7 +544,7 @@ struct PreferencesView: View {
         case .subcategories:
             return true // Optional step - user can proceed without selecting subcategories
         case .trendingTopics:
-            return true // Optional step - user can proceed without selecting trending topics
+            return !isTrendingTopicsLoading // Block proceed while trending topics are loading
         case .settings:
             return !preferences.country.isEmpty
         }
@@ -664,22 +738,40 @@ struct PreferencesView: View {
         let type = preferences.updateFrequency.rawValue.lowercased() // "daily" or "weekly"
         
         var day: String? = nil
-        var hour: Int
-        var minute: Int
+        var localHour: Int
+        var localMinute: Int
+        var utcHour: Int
+        var utcMinute: Int
+        var userTimezone: String
+        
+        // Get the user's current timezone
+        let timeZone = TimeZone.current
+        userTimezone = timeZone.identifier
         
         // Get hour, minute and day based on frequency type
         switch preferences.updateFrequency {
         case .daily:
             let calendar = Calendar.current
             let components = calendar.dateComponents([.hour, .minute], from: preferences.dailyTime)
-            hour = components.hour ?? 9
-            minute = components.minute ?? 0
+            localHour = components.hour ?? 9
+            localMinute = components.minute ?? 0
             day = nil // No day for daily
+            
+            // Convert local time to UTC
+            let (utcH, utcM) = convertLocalTimeToUTC(hour: localHour, minute: localMinute, timeZone: timeZone)
+            utcHour = utcH
+            utcMinute = utcM
+            
         case .weekly:
             let calendar = Calendar.current
             let components = calendar.dateComponents([.hour, .minute], from: preferences.weeklyTime)
-            hour = components.hour ?? 9
-            minute = components.minute ?? 0
+            localHour = components.hour ?? 9
+            localMinute = components.minute ?? 0
+            
+            // Convert local time to UTC
+            let (utcH, utcM) = convertLocalTimeToUTC(hour: localHour, minute: localMinute, timeZone: timeZone)
+            utcHour = utcH
+            utcMinute = utcM
             
             // Convert weeklyDay (1-7) to day name
             let dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
@@ -690,12 +782,18 @@ struct PreferencesView: View {
             }
         }
         
-        // Use ConversationService to save scheduling preferences
+        print("🕐 [Timezone Conversion] Local time: \(String(format: "%02d:%02d", localHour, localMinute)) (\(userTimezone))")
+        print("🌍 [Timezone Conversion] UTC time: \(String(format: "%02d:%02d", utcHour, utcMinute))")
+        
+        // Use ConversationService to save scheduling preferences with both local and UTC times
         ConversationService.shared.saveSchedulingPreferences(
             type: type,
             day: day,
-            hour: hour,
-            minute: minute
+            localHour: localHour,
+            localMinute: localMinute,
+            utcHour: utcHour,
+            utcMinute: utcMinute,
+            userTimezone: userTimezone
         ) { result in
             DispatchQueue.main.async {
                 switch result {
@@ -713,6 +811,31 @@ struct PreferencesView: View {
                 completion()
             }
         }
+    }
+    
+    // Helper function to convert local time to UTC
+    private func convertLocalTimeToUTC(hour: Int, minute: Int, timeZone: TimeZone) -> (hour: Int, minute: Int) {
+        // Create a date for today with the specified local time
+        let calendar = Calendar.current
+        var dateComponents = calendar.dateComponents([.year, .month, .day], from: Date())
+        dateComponents.hour = hour
+        dateComponents.minute = minute
+        dateComponents.timeZone = timeZone
+        
+        guard let localDate = calendar.date(from: dateComponents) else {
+            print("⚠️ Failed to create local date, returning original time")
+            return (hour: hour, minute: minute)
+        }
+        
+        // Convert to UTC
+        let utcFormatter = DateFormatter()
+        utcFormatter.timeZone = TimeZone(identifier: "UTC")
+        utcFormatter.dateFormat = "HH:mm"
+        
+        let utcTimeString = utcFormatter.string(from: localDate)
+        let utcComponents = utcTimeString.split(separator: ":").map { Int($0) ?? 0 }
+        
+        return (hour: utcComponents[0], minute: utcComponents[1])
     }
     
     private func getLanguageCode(from language: String) -> String {
@@ -916,7 +1039,7 @@ struct UpdatedSubcategoriesStepView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Image(systemName: category.icon)
-                                .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                                .foregroundColor(Color(red: 0.5, green: 0.2, blue: 0.8))
                                 .font(.title2)
                             
                             VStack(alignment: .leading, spacing: 2) {
@@ -938,7 +1061,7 @@ struct UpdatedSubcategoriesStepView: View {
                                 toggleAllSubtopics(for: category)
                             }
                             .font(.caption)
-                            .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                            .foregroundColor(Color(red: 0.5, green: 0.2, blue: 0.8))
                         }
                         
                         // Hardcoded subtopics from catalog
@@ -1018,7 +1141,7 @@ struct TrendingTopicsStepView: View {
     @StateObject private var trendingService = TrendingSubtopicsService.shared
     @State private var trendingTopics: [String: [String]] = [:]
     @State private var loadingTrending: Set<String> = []
-    @State private var isLoading = false
+    @Binding var isLoading: Bool
     @State private var hasLoaded = false
     @State private var lastSelectedSubtopics: [String] = [] // Track last selected subtopics
     @State private var loadingProgress: Double = 0.0 // For animated loading bar
@@ -1623,12 +1746,12 @@ struct ProgressBar: View {
             HStack {
                 ForEach(0..<totalSteps, id: \.self) { step in
                     Circle()
-                        .fill(step <= currentStep ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.gray.opacity(0.3))
+                        .fill(step <= currentStep ? Color(red: 0.5, green: 0.2, blue: 0.8) : Color.gray.opacity(0.3))
                         .frame(width: 12, height: 12)
                     
                     if step < totalSteps - 1 {
                         Rectangle()
-                            .fill(step < currentStep ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.gray.opacity(0.3))
+                            .fill(step < currentStep ? Color(red: 0.5, green: 0.2, blue: 0.8) : Color.gray.opacity(0.3))
                             .frame(height: 2)
                     }
                 }
@@ -1655,7 +1778,7 @@ struct CategoryCard: View {
             VStack(spacing: 10) {
                 Image(systemName: category.icon)
                     .font(.system(size: 28, weight: .medium))
-                    .foregroundColor(isSelected ? .white : Color(red: 0.1, green: 0.2, blue: 0.4))
+                    .foregroundColor(isSelected ? .white : Color(red: 0.5, green: 0.2, blue: 0.8))
                 
                 Text(category.localizedName(using: languageManager))
                     .font(.system(size: 15, weight: .medium))
@@ -1667,8 +1790,8 @@ struct CategoryCard: View {
             .frame(height: 100)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color(.systemGray6))
-                    .shadow(color: isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4).opacity(0.2) : .clear, radius: 8, x: 0, y: 4)
+                    .fill(isSelected ? Color(red: 0.5, green: 0.2, blue: 0.8) : Color(.systemGray6))
+                    .shadow(color: isSelected ? Color(red: 0.5, green: 0.2, blue: 0.8).opacity(0.2) : .clear, radius: 8, x: 0, y: 4)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -1694,13 +1817,13 @@ struct SubcategoryChip: View {
                 
                 Text(name)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(isSelected ? .white : (isHardcoded ? Color(red: 0.1, green: 0.2, blue: 0.4) : .orange))
+                    .foregroundColor(isSelected ? .white : (isHardcoded ? Color(red: 0.5, green: 0.2, blue: 0.8) : .orange))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? (isHardcoded ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.orange) : (isHardcoded ? Color(red: 0.1, green: 0.2, blue: 0.4).opacity(0.1) : Color.orange.opacity(0.1)))
+                    .fill(isSelected ? (isHardcoded ? Color(red: 0.5, green: 0.2, blue: 0.8) : Color.orange) : (isHardcoded ? Color(red: 0.5, green: 0.2, blue: 0.8).opacity(0.1) : Color.orange.opacity(0.1)))
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -1729,7 +1852,7 @@ struct FrequencyOption: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                        .foregroundColor(Color(red: 0.5, green: 0.2, blue: 0.8))
                 }
             }
             .padding(.horizontal, 20)
@@ -1739,7 +1862,7 @@ struct FrequencyOption: View {
                     .fill(Color(.systemGray6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? Color(red: 0.1, green: 0.2, blue: 0.4) : Color.clear, lineWidth: 2)
+                            .stroke(isSelected ? Color(red: 0.5, green: 0.2, blue: 0.8) : Color.clear, lineWidth: 2)
                     )
             )
         }
@@ -1802,8 +1925,8 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(height: 52)
             .background(
                 Capsule()
-                    .fill(Color(red: 0.1, green: 0.2, blue: 0.4))
-                    .shadow(color: Color(red: 0.1, green: 0.2, blue: 0.4).opacity(0.3), radius: 8, x: 0, y: 4)
+                    .fill(configuration.isPressed ? Color(red: 0.5, green: 0.2, blue: 0.8).opacity(0.8) : Color(red: 0.5, green: 0.2, blue: 0.8))
+                    .shadow(color: Color(red: 0.5, green: 0.2, blue: 0.8).opacity(0.3), radius: 8, x: 0, y: 4)
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
@@ -1826,6 +1949,25 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
+struct DisablablePrimaryButtonStyle: ButtonStyle {
+    let isDisabled: Bool
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 17, weight: .medium))
+            .foregroundColor(isDisabled ? Color(.systemGray3) : .white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(
+                Capsule()
+                    .fill(isDisabled ? Color(.systemGray5) : (configuration.isPressed ? Color(red: 0.5, green: 0.2, blue: 0.8).opacity(0.8) : Color(red: 0.5, green: 0.2, blue: 0.8)))
+                    .shadow(color: isDisabled ? .clear : Color(red: 0.5, green: 0.2, blue: 0.8).opacity(0.3), radius: 8, x: 0, y: 4)
+            )
+            .scaleEffect(configuration.isPressed && !isDisabled ? 0.96 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Conversation UI Components
 struct ConversationBubble: View {
     let message: ConversationMessage
@@ -1838,7 +1980,7 @@ struct ConversationBubble: View {
                     Text(message.content)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color(red: 0.1, green: 0.2, blue: 0.4))
+                        .background(Color(red: 0.5, green: 0.2, blue: 0.8))
                         .foregroundColor(.white)
                         .cornerRadius(16)
                         .frame(maxWidth: 250, alignment: .trailing)
@@ -1950,7 +2092,7 @@ struct LanguageCountryStepView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "textformat")
-                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                        .foregroundColor(Color(red: 0.5, green: 0.2, blue: 0.8))
                         .font(.system(size: 18))
                     Text("Language")
                         .font(.system(size: 18, weight: .medium))
@@ -1977,7 +2119,7 @@ struct LanguageCountryStepView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "location")
-                        .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
+                        .foregroundColor(Color(red: 0.5, green: 0.2, blue: 0.8))
                         .font(.system(size: 18))
                     Text("Location")
                         .font(.system(size: 18, weight: .medium))

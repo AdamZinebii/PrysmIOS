@@ -34,5 +34,15 @@ service cloud.firestore {
     match /user_audio_connections/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    
+    // Règles pour la collection scheduling_preferences
+    match /scheduling_preferences/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour la collection logging_summary
+    match /logging_summary/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
   }
 } 

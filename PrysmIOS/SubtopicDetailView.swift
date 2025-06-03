@@ -8,6 +8,9 @@ struct SubtopicDetailView: View {
     @State private var showRedditSheet = false
     @Environment(\.dismiss) private var dismiss
     
+    // Logging service
+    @StateObject private var loggingService = LoggingService.shared
+    
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 24) {
@@ -31,6 +34,11 @@ struct SubtopicDetailView: View {
                         theme: topicTheme,
                         onTap: {
                             showRedditSheet = true
+                            // Log reddit summary view
+                            loggingService.logRedditSummaryViewed(
+                                subtopicName: subtopicName,
+                                parentTopic: nil // Could be enhanced to track parent topic
+                            )
                         }
                     )
                     .padding(.horizontal)

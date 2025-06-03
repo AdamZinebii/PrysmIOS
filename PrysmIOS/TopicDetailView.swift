@@ -4,8 +4,9 @@ struct TopicDetailView: View {
     let topic: TopicReport
     @Environment(\.dismiss) private var dismiss
     @State private var selectedSubtopic: SubtopicWrapper?
-    @State private var selectedImageUrl: String?
-    @State private var showFullscreenImage = false
+    
+    // Logging service
+    @StateObject private var loggingService = LoggingService.shared
     
     var body: some View {
         NavigationView {
@@ -19,11 +20,6 @@ struct TopicDetailView: View {
                     
                     // Enhanced topic summary section
                     topicSummarySection
-                    
-                    // Article Images Gallery
-                    if !topic.articleThumbnails.isEmpty {
-                        articleImagesSection
-                    }
                     
                     // Subtopics (clickable)
                     if !topic.subtopics.isEmpty {
@@ -64,16 +60,11 @@ struct TopicDetailView: View {
                 subtopicReport: wrapper.report,
                 topicTheme: topic.colorTheme
             )
-        }
-        .fullScreenCover(isPresented: $showFullscreenImage) {
-            if let imageUrl = selectedImageUrl {
-                FullscreenImageView(
-                    imageUrl: imageUrl,
-                    theme: topic.colorTheme,
-                    onDismiss: {
-                        showFullscreenImage = false
-                        selectedImageUrl = nil
-                    }
+            .onAppear {
+                // Log subtopic summary view
+                loggingService.logSubtopicSummaryViewed(
+                    subtopicName: wrapper.name,
+                    parentTopic: topic.displayTitle
                 )
             }
         }
@@ -200,96 +191,6 @@ struct TopicDetailView: View {
                 alignment: .leading
             )
             .padding(.leading, 8)
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color(.systemGray4), lineWidth: 1)
-                )
-        )
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-    }
-    
-    private var articleImagesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "photo.on.rectangle.angled")
-                    .font(.system(size: 18))
-                    .foregroundColor(topic.colorTheme.primaryColor.hexColor)
-                
-                Text("Related Images")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                Text("\(topic.articleThumbnails.count)")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(topic.colorTheme.primaryColor.hexColor)
-                    )
-            }
-            
-            // Grid of images
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 8),
-                GridItem(.flexible(), spacing: 8),
-                GridItem(.flexible(), spacing: 8)
-            ], spacing: 8) {
-                ForEach(Array(topic.articleThumbnails.enumerated()), id: \.offset) { index, imageUrl in
-                    AsyncImage(url: URL(string: imageUrl)) { phase in
-                        switch phase {
-                        case .empty:
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(topic.colorTheme.primaryColor.hexColor.opacity(0.2))
-                                .frame(width: 100, height: 100)
-                                .overlay(
-                                    ProgressView()
-                                        .tint(topic.colorTheme.primaryColor.hexColor)
-                                )
-                        case .success(let image):
-                            Button(action: {
-                                selectedImageUrl = imageUrl
-                                showFullscreenImage = true
-                            }) {
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 100, height: 100)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(
-                                                topic.colorTheme.primaryColor.hexColor.opacity(0.2),
-                                                lineWidth: 1
-                                            )
-                                    )
-                                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            }
-                            .buttonStyle(ScaleButtonStyle())
-                        case .failure(_):
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(topic.colorTheme.primaryColor.hexColor.opacity(0.2))
-                                .frame(width: 100, height: 100)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(topic.colorTheme.primaryColor.hexColor.opacity(0.6))
-                                )
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
-                }
-            }
         }
         .padding(20)
         .background(
@@ -455,14 +356,14 @@ struct SubtopicCard: View {
             .padding(20)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(.systemBackground))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(
                                 LinearGradient(
                                     gradient: Gradient(colors: [
-                                        theme.primaryColor.hexColor.opacity(0.2),
-                                        theme.secondaryColor.hexColor.opacity(0.2)
+                                        theme.primaryColor.hexColor.opacity(0.3),
+                                        theme.secondaryColor.hexColor.opacity(0.3)
                                     ]),
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -471,8 +372,8 @@ struct SubtopicCard: View {
                             )
                     )
             )
-            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
-            .scaleEffect(isPressed ? 0.97 : 1.0)
+            .shadow(color: theme.primaryColor.hexColor.opacity(0.1), radius: 8, x: 0, y: 4)
+            .scaleEffect(isPressed ? 0.98 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -516,160 +417,6 @@ struct SubtopicWrapper: Identifiable {
     let id = UUID()
     let name: String
     let report: SubtopicReport
-}
-
-// MARK: - Fullscreen Image View
-struct FullscreenImageView: View {
-    let imageUrl: String
-    let theme: TopicColorTheme
-    let onDismiss: () -> Void
-    
-    @State private var scale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastScale: CGFloat = 1.0
-    @State private var lastOffset: CGSize = .zero
-    
-    var body: some View {
-        ZStack {
-            // Background
-            Color.black
-                .ignoresSafeArea()
-            
-            // Image
-            AsyncImage(url: URL(string: imageUrl)) { phase in
-                switch phase {
-                case .empty:
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .tint(.white)
-                            .scaleEffect(1.5)
-                        Text("Loading image...")
-                            .foregroundColor(.white.opacity(0.8))
-                            .font(.system(size: 16, weight: .medium))
-                    }
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .scaleEffect(scale)
-                        .offset(offset)
-                        .gesture(
-                            SimultaneousGesture(
-                                MagnificationGesture()
-                                    .onChanged { value in
-                                        let delta = value / lastScale
-                                        lastScale = value
-                                        scale = min(max(scale * delta, 0.5), 4.0)
-                                    }
-                                    .onEnded { value in
-                                        lastScale = 1.0
-                                        if scale < 1.0 {
-                                            withAnimation(.spring()) {
-                                                scale = 1.0
-                                                offset = .zero
-                                            }
-                                        }
-                                    },
-                                DragGesture()
-                                    .onChanged { value in
-                                        offset = CGSize(
-                                            width: lastOffset.width + value.translation.width,
-                                            height: lastOffset.height + value.translation.height
-                                        )
-                                    }
-                                    .onEnded { value in
-                                        lastOffset = offset
-                                        
-                                        // If scale is back to 1, reset offset
-                                        if scale <= 1.0 {
-                                            withAnimation(.spring()) {
-                                                offset = .zero
-                                                lastOffset = .zero
-                                            }
-                                        }
-                                    }
-                            )
-                        )
-                        .onTapGesture(count: 2) {
-                            withAnimation(.spring()) {
-                                if scale > 1.0 {
-                                    scale = 1.0
-                                    offset = .zero
-                                    lastOffset = .zero
-                                } else {
-                                    scale = 2.0
-                                }
-                            }
-                        }
-                case .failure(_):
-                    VStack(spacing: 16) {
-                        Image(systemName: "photo")
-                            .font(.system(size: 64))
-                            .foregroundColor(.white.opacity(0.6))
-                        Text("Failed to load image")
-                            .foregroundColor(.white.opacity(0.8))
-                            .font(.system(size: 16, weight: .medium))
-                    }
-                @unknown default:
-                    EmptyView()
-                }
-            }
-            
-            // Close button
-            VStack {
-                HStack {
-                    Spacer()
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundColor(.white.opacity(0.8))
-                            .background(
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                                    .frame(width: 44, height: 44)
-                            )
-                    }
-                    .padding(.top, 50)
-                    .padding(.trailing, 20)
-                }
-                Spacer()
-            }
-            
-            // Instructions overlay (shown briefly)
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Text("Double tap to zoom • Pinch to scale • Drag to pan")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                    )
-                    .padding(.bottom, 50)
-                    Spacer()
-                }
-            }
-        }
-        .onTapGesture {
-            onDismiss()
-        }
-    }
-}
-
-// MARK: - Scale Button Style
-struct ScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
 }
 
 #Preview {

@@ -16,6 +16,16 @@ struct ModernDashboardView: View {
     // Audio player integration
     @ObservedObject private var audioPlayerService = AudioPlayerService.shared
     
+    // Logging service
+    @StateObject private var loggingService = LoggingService.shared
+    
+    // Scheduling preferences
+    @State private var schedulingType: String = "daily"
+    @State private var schedulingTime: String = ""
+    @State private var schedulingDay: String = ""
+    @State private var nextUpdateTimeString: String = "Calculating..."
+    @State private var isLoadingSchedule = true
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -48,6 +58,7 @@ struct ModernDashboardView: View {
                     scrollOffset = value
                 }
                 .refreshable {
+                    loggingService.logRefreshTriggered(context: "pull_to_refresh")
                     await refreshData()
                 }
                         }
@@ -75,10 +86,20 @@ struct ModernDashboardView: View {
                 await loadInitialData()
                 // Load user's podcast from Firebase
                 await loadUserPodcast()
+                
+                // Log app entrance
+                loggingService.logAppEntered()
             }
         }
         .sheet(item: $selectedTopic) { topic in
             TopicDetailView(topic: topic)
+                .onAppear {
+                    // Log topic summary view
+                    loggingService.logTopicSummaryViewed(
+                        topicName: topic.displayTitle,
+                        topicId: topic.topicName
+                    )
+                }
         }
     }
     
@@ -130,6 +151,7 @@ struct ModernDashboardView: View {
                     // Settings button
                     Button(action: {
                             showSettings = true
+                            loggingService.logSettingsOpened()
                     }) {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 18, weight: .semibold))
@@ -149,9 +171,30 @@ struct ModernDashboardView: View {
                 .padding(.horizontal, 24)
                 
                 // Modern Audio Player - Always visible
-                ModernAudioPlayer()
+                ModernAudioPlayer(podcastTitle: getUserPodcastTitle())
                     .padding(.horizontal, 24)
                     .padding(.top, 8)
+                
+                // Simple Update Section
+                if !isLoadingSchedule && !nextUpdateTimeString.isEmpty && nextUpdateTimeString != "Calculating..." {
+                    HStack(spacing: 12) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                        
+                        Text("Next update in \(nextUpdateTimeString)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        Spacer()
+                        
+                        Text(schedulingType.capitalized)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+                }
             }
             .padding(.bottom, 30)
             .background(
@@ -275,7 +318,10 @@ struct ModernDashboardView: View {
             }
             
             Button(action: {
-                Task { await refreshData() }
+                Task { 
+                    loggingService.logRefreshTriggered(context: "error_retry")
+                    await refreshData() 
+                }
             }) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.clockwise")
@@ -328,6 +374,7 @@ struct ModernDashboardView: View {
             
             Button(action: {
                 Task {
+                    loggingService.logRefreshTriggered(context: "empty_state_generate")
                     guard let userId = authService.user?.uid else { return }
                     await aiFeedService.generateCompleteReport(userId: userId)
                 }
@@ -475,6 +522,7 @@ struct ModernDashboardView: View {
             
             Button(action: {
                 Task {
+                    loggingService.logRefreshTriggered(context: "first_time_check_updates")
                     guard let userId = authService.user?.uid else { return }
                     await aiFeedService.generateCompleteReport(userId: userId)
                 }
@@ -527,9 +575,11 @@ struct ModernDashboardView: View {
     private var settingsSheet: some View {
         SettingsSheet(
             onRefreshArticles: {
+                loggingService.logRefreshTriggered(context: "settings_refresh")
                 Task { await refreshData() }
             },
             onUpdatePreferences: {
+                loggingService.logPreferencesOpened()
                 showSettings = false // Dismiss settings first
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     showPreferences = true // Then show preferences
@@ -591,6 +641,7 @@ struct ModernDashboardView: View {
         .animation(.easeInOut(duration: 0.3), value: authService.isSavingPreferencesInBackground)
     }
     
+    
     // MARK: - Helper Methods
     
     private func getCurrentGreeting() -> String {
@@ -620,11 +671,162 @@ struct ModernDashboardView: View {
         
         // Also reload user's podcast
         await loadUserPodcast()
+        
+        // Reload scheduling preferences
+        await loadSchedulingPreferences()
     }
     
     private func loadInitialData() async {
         guard let userId = authService.user?.uid else { return }
         await aiFeedService.fetchAIFeedReports(userId: userId)
+        
+        // Load scheduling preferences
+        await loadSchedulingPreferences()
+    }
+    
+    private func loadSchedulingPreferences() async {
+        guard let userId = authService.user?.uid else {
+            print("❌ No user ID available for scheduling preferences")
+            return
+        }
+        
+        do {
+            print("📅 Loading scheduling preferences from Firebase for user: \(userId)")
+            
+            let db = Firestore.firestore()
+            let scheduleDoc = try await db.collection("scheduling_preferences").document(userId).getDocument()
+            
+            if scheduleDoc.exists, let data = scheduleDoc.data() {
+                await MainActor.run {
+                    schedulingType = data["type"] as? String ?? "daily"
+                    schedulingTime = data["local_time"] as? String ?? "09:00"
+                    schedulingDay = data["day"] as? String ?? "Monday"
+                    isLoadingSchedule = false
+                    
+                    // Calculate next update time
+                    calculateNextUpdateTime()
+                }
+                
+                print("✅ Loaded scheduling: type=\(schedulingType), local_time=\(schedulingTime), day=\(schedulingDay)")
+            } else {
+                print("📄 No scheduling preferences found, using defaults")
+                await MainActor.run {
+                    schedulingType = "daily"
+                    schedulingTime = "09:00"
+                    schedulingDay = "Monday"
+                    isLoadingSchedule = false
+                    calculateNextUpdateTime()
+                }
+            }
+        } catch {
+            print("❌ Error loading scheduling preferences: \(error.localizedDescription)")
+            await MainActor.run {
+                isLoadingSchedule = false
+                nextUpdateTimeString = "Unable to calculate"
+            }
+        }
+    }
+    
+    private func calculateNextUpdateTime() {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Parse the time string (format: "HH:mm")
+        let timeComponents = schedulingTime.split(separator: ":").compactMap { Int($0) }
+        guard timeComponents.count == 2 else {
+            nextUpdateTimeString = "Invalid time format"
+            return
+        }
+        
+        let hour = timeComponents[0]
+        let minute = timeComponents[1]
+        
+        var nextUpdate: Date?
+        
+        if schedulingType == "daily" {
+            // Calculate next daily update
+            var dateComponents = calendar.dateComponents([.year, .month, .day], from: now)
+            dateComponents.hour = hour
+            dateComponents.minute = minute
+            dateComponents.second = 0
+            
+            if let todayUpdate = calendar.date(from: dateComponents) {
+                if todayUpdate > now {
+                    // Today's update hasn't happened yet
+                    nextUpdate = todayUpdate
+                } else {
+                    // Today's update already passed, next one is tomorrow
+                    nextUpdate = calendar.date(byAdding: .day, value: 1, to: todayUpdate)
+                }
+            }
+        } else if schedulingType == "weekly" {
+            // Calculate next weekly update
+            let weekdays = ["Sunday": 1, "Monday": 2, "Tuesday": 3, "Wednesday": 4, "Thursday": 5, "Friday": 6, "Saturday": 7]
+            guard let targetWeekday = weekdays[schedulingDay] else {
+                nextUpdateTimeString = "Invalid day"
+                return
+            }
+            
+            let currentWeekday = calendar.component(.weekday, from: now)
+            var daysToAdd = targetWeekday - currentWeekday
+            
+            if daysToAdd < 0 {
+                daysToAdd += 7 // Next week
+            } else if daysToAdd == 0 {
+                // Same day, check if time has passed
+                var dateComponents = calendar.dateComponents([.year, .month, .day], from: now)
+                dateComponents.hour = hour
+                dateComponents.minute = minute
+                dateComponents.second = 0
+                
+                if let todayUpdate = calendar.date(from: dateComponents), todayUpdate <= now {
+                    daysToAdd = 7 // Next week
+                }
+            }
+            
+            if let targetDate = calendar.date(byAdding: .day, value: daysToAdd, to: now) {
+                var dateComponents = calendar.dateComponents([.year, .month, .day], from: targetDate)
+                dateComponents.hour = hour
+                dateComponents.minute = minute
+                dateComponents.second = 0
+                nextUpdate = calendar.date(from: dateComponents)
+            }
+        }
+        
+        // Calculate time remaining
+        if let nextUpdate = nextUpdate {
+            let timeInterval = nextUpdate.timeIntervalSince(now)
+            nextUpdateTimeString = formatTimeRemaining(timeInterval)
+        } else {
+            nextUpdateTimeString = "Unable to calculate"
+        }
+    }
+    
+    private func formatTimeRemaining(_ timeInterval: TimeInterval) -> String {
+        if timeInterval <= 0 {
+            return "Now"
+        }
+        
+        let hours = Int(timeInterval) / 3600
+        let minutes = (Int(timeInterval) % 3600) / 60
+        
+        if hours > 24 {
+            let days = hours / 24
+            let remainingHours = hours % 24
+            if remainingHours == 0 {
+                return "\(days) day\(days == 1 ? "" : "s")"
+            } else {
+                return "\(days) day\(days == 1 ? "" : "s"), \(remainingHours)h"
+            }
+        } else if hours > 0 {
+            if minutes == 0 {
+                return "\(hours) hour\(hours == 1 ? "" : "s")"
+            } else {
+                return "\(hours)h \(minutes)m"
+            }
+        } else {
+            return "\(minutes) minute\(minutes == 1 ? "" : "s")"
+        }
     }
     
     private func loadUserPodcast() async {
@@ -668,6 +870,15 @@ struct ModernDashboardView: View {
             }
         } catch {
             print("❌ Error loading user podcast: \(error.localizedDescription)")
+        }
+    }
+    
+    private func getUserPodcastTitle() -> String {
+        if let userProfile = authService.userProfile,
+           !userProfile.firstName.isEmpty {
+            return "\(userProfile.firstName)'s Daily Briefing"
+        } else {
+            return "Your Daily Briefing"
         }
     }
 }
@@ -1233,26 +1444,14 @@ struct SettingsSheet: View {
         VStack(spacing: 12) {
             sectionHeader("News & Updates")
             
-        VStack(spacing: 8) {
-                modernButton(
-                    title: "Refresh Articles",
-                    subtitle: "Get the latest news updates",
-                    icon: "arrow.clockwise",
-                    action: { 
-                        onRefreshArticles()
-                        dismiss()
-                    }
-                )
-                
-                modernButton(
-                    title: "Update Preferences",
-                    subtitle: "Modify your news topics",
-                    icon: "slider.horizontal.3",
-                    action: {
-                        onUpdatePreferences()
-                    }
-                )
-            }
+            modernButton(
+                title: "Update Preferences",
+                subtitle: "Modify your news topics",
+                icon: "slider.horizontal.3",
+                action: {
+                    onUpdatePreferences()
+                }
+            )
         }
     }
     
@@ -1346,6 +1545,9 @@ struct ModernAudioPlayer: View {
     @ObservedObject private var audioPlayerService = AudioPlayerService.shared
     @State private var isDraggingSlider = false
     @State private var draggedProgress: Double = 0
+    @State private var isControlsPressed = false
+    @State private var pressedControl: String = ""
+    let podcastTitle: String
     
     private var progress: Double {
         guard audioPlayerService.duration > 0 else { return 0 }
@@ -1355,247 +1557,408 @@ struct ModernAudioPlayer: View {
     var body: some View {
         if audioPlayerService.isPlayerAvailable || audioPlayerService.isPlaying {
             // Audio available - show full player
-            audioPlayerView
+            enhancedAudioPlayerView
         } else {
-            // No audio available - show waiting message
-            noAudioView
+            // No audio available - show elegant waiting state
+            elegantNoAudioView
         }
     }
     
-    private var audioPlayerView: some View {
-        VStack(spacing: 12) {
-            // Track info and controls row
-            HStack(spacing: 16) {
-                // Album artwork placeholder
+    private var enhancedAudioPlayerView: some View {
+        HStack(spacing: 16) {
+            // Enhanced album artwork - smaller
+            ZStack {
+                // Glow background
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.3),
+                                Color.white.opacity(0.1),
+                                Color.clear
+                            ]),
+                            center: .center,
+                            startRadius: 3,
+                            endRadius: 25
+                        )
+                    )
+                    .frame(width: 50, height: 50)
+                
+                // Main artwork container
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
                         LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.white.opacity(0.2),
-                                Color.white.opacity(0.1)
+                            gradient: Gradient(stops: [
+                                .init(color: Color.white.opacity(0.25), location: 0),
+                                .init(color: Color.white.opacity(0.15), location: 0.5),
+                                .init(color: Color.white.opacity(0.1), location: 1)
                             ]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 50, height: 50)
+                    .frame(width: 44, height: 44)
                     .overlay(
-                        Image(systemName: "waveform")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                        // Glass effect border
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.white.opacity(0.4),
+                                        Color.white.opacity(0.1)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
                     )
-                
-                // Track info
+                    .overlay(
+                        // Audio icon with pulse animation
+                        Image("orel_logo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 28, height: 28)
+                            .foregroundColor(.white.opacity(0.9))
+                            .scaleEffect(audioPlayerService.isPlaying ? 1.05 : 1.0)
+                            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: audioPlayerService.isPlaying)
+                    )
+                    .shadow(color: .white.opacity(0.2), radius: 6, x: 0, y: 2)
+            }
+            
+            // Track info and progress - middle section
+            VStack(alignment: .leading, spacing: 6) {
+                // Title and subtitle
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Your Daily Briefing")
-                        .font(.system(size: 16, weight: .semibold))
+                    Text(podcastTitle)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(1)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                        
+                        Text("AI Generated Podcast")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.7))
+                            .lineLimit(1)
+                    }
                 }
                 
-                Spacer()
-                
-                // Audio controls row
-                HStack(spacing: 12) {
-                    // Skip backward 15s
-                    Button(action: {
-                        audioPlayerService.skipBackward(15.0)
-                    }) {
-                        Image(systemName: "gobackward.15")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 36, height: 36)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.1))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                // Compact progress bar
+                VStack(spacing: 4) {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // Track background
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white.opacity(0.15))
+                                .frame(height: 4)
+                            
+                            // Progress fill
+                            HStack(spacing: 0) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.white.opacity(0.9))
+                                    .frame(
+                                        width: geometry.size.width * (isDraggingSlider ? draggedProgress : progress),
+                                        height: 4
                                     )
-                            )
+                                Spacer(minLength: 0)
+                            }
+                            .animation(.linear(duration: 0.1), value: progress)
+                            
+                            // Draggable thumb
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: isDraggingSlider ? 12 : 8, height: isDraggingSlider ? 12 : 8)
+                                .offset(x: (geometry.size.width * (isDraggingSlider ? draggedProgress : progress)) - 4)
+                                .opacity(isDraggingSlider || audioPlayerService.duration > 0 ? 1 : 0)
+                        }
+                        .gesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    isDraggingSlider = true
+                                    draggedProgress = min(max(value.location.x / geometry.size.width, 0), 1)
+                                }
+                                .onEnded { value in
+                                    let newProgress = min(max(value.location.x / geometry.size.width, 0), 1)
+                                    let seekTime = newProgress * audioPlayerService.duration
+                                    audioPlayerService.seek(to: seekTime)
+                                    isDraggingSlider = false
+                                }
+                        )
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .disabled(!audioPlayerService.isPlayerAvailable)
-                    .opacity(audioPlayerService.isPlayerAvailable ? 1.0 : 0.5)
+                    .frame(height: 4)
                     
-                    // Play/Pause control (main button)
-                    Button(action: {
-                        audioPlayerService.togglePlayPause()
-                    }) {
-                        Image(systemName: audioPlayerService.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.15))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                    )
-                            )
+                    // Compact time labels
+                    HStack {
+                        Text(formatTime(audioPlayerService.currentTime))
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.7))
+                            .monospacedDigit()
+                        
+                        Spacer()
+                        
+                        Text(formatTime(audioPlayerService.duration))
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.7))
+                            .monospacedDigit()
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .scaleEffect(audioPlayerService.isPlaying ? 1.05 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: audioPlayerService.isPlaying)
-                    
-                    // Skip forward 15s
-                    Button(action: {
-                        audioPlayerService.skipForward(15.0)
-                    }) {
-                        Image(systemName: "goforward.15")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 36, height: 36)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.1))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                                    )
-                            )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .disabled(!audioPlayerService.isPlayerAvailable)
-                    .opacity(audioPlayerService.isPlayerAvailable ? 1.0 : 0.5)
                 }
             }
             
-                // Progress bar
-            VStack(spacing: 6) {
-                // Progress slider
-                GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                        // Track background
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.white.opacity(0.2))
-                            .frame(height: 4)
-                    
-                        // Progress fill
-                        RoundedRectangle(cornerRadius: 2)
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [
-                                            Color.white.opacity(0.9),
-                                            Color.white.opacity(0.7)
-                                        ]),
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(
-                                width: geometry.size.width * (isDraggingSlider ? draggedProgress : progress),
-                                height: 4
-                                )
-                            .animation(.linear(duration: 0.1), value: progress)
-                        }
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                                isDraggingSlider = true
-                                draggedProgress = min(max(value.location.x / geometry.size.width, 0), 1)
-                        }
-                        .onEnded { value in
-                                let newProgress = min(max(value.location.x / geometry.size.width, 0), 1)
-                                let seekTime = newProgress * audioPlayerService.duration
-                                audioPlayerService.seek(to: seekTime)
-                                isDraggingSlider = false
-                            }
-                    )
+            // Compact controls on the right
+            HStack(spacing: 8) {
+                // Skip backward - smaller
+                Button(action: { audioPlayerService.skipBackward(15.0) }) {
+                    Image(systemName: "gobackward.15")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.9))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.12))
+                                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+                        )
                 }
-                .frame(height: 4)
+                .buttonStyle(PlainButtonStyle())
+                .disabled(!audioPlayerService.isPlayerAvailable)
+                .opacity(audioPlayerService.isPlayerAvailable ? 1.0 : 0.6)
                 
-                // Time labels
-                HStack {
-                    Text(formatTime(audioPlayerService.currentTime))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
-                        .monospacedDigit()
-                    
-                    Spacer()
-                    
-                    Text(formatTime(audioPlayerService.duration))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
-                        .monospacedDigit()
+                // Main play/pause button - smaller
+                Button(action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        audioPlayerService.togglePlayPause()
+                    }
+                }) {
+                    ZStack {
+                        // Main button background
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.white.opacity(0.25),
+                                        Color.white.opacity(0.15)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                            .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                            .shadow(color: .white.opacity(0.2), radius: 6, x: 0, y: 2)
+                        
+                        // Play/pause icon
+                        Image(systemName: audioPlayerService.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .offset(x: audioPlayerService.isPlaying ? 0 : 1)
+                    }
                 }
+                .buttonStyle(PlainButtonStyle())
+                .scaleEffect(audioPlayerService.isPlaying ? 1.05 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: audioPlayerService.isPlaying)
+                
+                // Skip forward - smaller
+                Button(action: { audioPlayerService.skipForward(15.0) }) {
+                    Image(systemName: "goforward.15")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.9))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.12))
+                                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .disabled(!audioPlayerService.isPlayerAvailable)
+                .opacity(audioPlayerService.isPlayerAvailable ? 1.0 : 0.6)
             }
         }
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
         .padding(.horizontal, 20)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.black.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
+            // Glass morphism background
+            ZStack {
+                // Base background
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(stops: [
+                                .init(color: Color.black.opacity(0.15), location: 0),
+                                .init(color: Color.black.opacity(0.1), location: 0.5),
+                                .init(color: Color.black.opacity(0.2), location: 1)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.white.opacity(0.15),
+                                        Color.white.opacity(0.05)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                
+                // Inner highlight
+                RoundedRectangle(cornerRadius: 15)
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.1),
+                                Color.clear
+                            ]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+                    .padding(1)
+            }
         )
+        .shadow(color: .black.opacity(0.1), radius: 16, x: 0, y: 6)
     }
     
-    private var noAudioView: some View {
-        HStack(spacing: 16) {
-            // Audio icon with subtle animation
-            RoundedRectangle(cornerRadius: 8)
-                .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                            Color.white.opacity(0.15),
-                            Color.white.opacity(0.08)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+    private var elegantNoAudioView: some View {
+        HStack(spacing: 18) {
+            // Enhanced waiting state icon
+            ZStack {
+                // Pulsing background rings
+                ForEach(0..<3, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.1 - Double(index) * 0.02), lineWidth: 1)
+                        .frame(width: 54 + CGFloat(index * 8), height: 54 + CGFloat(index * 8))
+                        .scaleEffect(1.0 + Double(index) * 0.1)
+                        .animation(
+                            .easeInOut(duration: 2.0 + Double(index) * 0.5)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(index) * 0.3),
+                            value: true
+                        )
+                }
+                
+                // Main container
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(stops: [
+                                .init(color: Color.white.opacity(0.15), location: 0),
+                                .init(color: Color.white.opacity(0.08), location: 1)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .frame(width: 50, height: 50)
-                .overlay(
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                        .scaleEffect(1.0)
-                        .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: true)
-                )
+                    .frame(width: 54, height: 54)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                    .overlay(
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                            .rotationEffect(.degrees(0))
+                            .animation(.linear(duration: 4).repeatForever(autoreverses: false), value: true)
+                    )
+                    .shadow(color: .white.opacity(0.1), radius: 8, x: 0, y: 2)
+            }
             
-            // No audio message
-            VStack(alignment: .leading, spacing: 2) {
-                Text("No Audio Available")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.9))
+            // Enhanced message content
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Preparing Your Briefing")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.95))
                     .lineLimit(1)
                 
-                Text("Wait for your daily schedule")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    // Animated dots
+                    HStack(spacing: 3) {
+                        ForEach(0..<3, id: \.self) { index in
+                            Circle()
+                                .fill(Color.white.opacity(0.6))
+                                .frame(width: 4, height: 4)
+                                .scaleEffect(1.0)
+                                .animation(
+                                    .easeInOut(duration: 0.8)
+                                    .repeatForever(autoreverses: true)
+                                    .delay(Double(index) * 0.2),
+                                    value: true
+                                )
+                        }
+                    }
+                    
+                    Text("Your podcast will be ready soon")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.7))
+                        .lineLimit(1)
+                }
             }
             
             Spacer()
             
-            // Clock icon to indicate waiting
-            Image(systemName: "clock.fill")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.white.opacity(0.5))
-                .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(Color.white.opacity(0.08))
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                        )
-                )
+            // Status indicator
+            VStack(spacing: 4) {
+                Image(systemName: "waveform.badge.plus")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(0.08))
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                            )
+                    )
+                    .scaleEffect(1.0)
+                    .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: true)
+            }
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 20)
+        .padding(.vertical, 20)
+        .padding(.horizontal, 24)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.black.opacity(0.1))
-                        .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
+            // Elegant glass background for waiting state
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(stops: [
+                                .init(color: Color.black.opacity(0.1), location: 0),
+                                .init(color: Color.black.opacity(0.05), location: 0.5),
+                                .init(color: Color.black.opacity(0.15), location: 1)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.white.opacity(0.15),
+                                        Color.white.opacity(0.05)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+            }
         )
+        .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 6)
     }
     
     private func formatTime(_ seconds: Double) -> String {

@@ -21,6 +21,12 @@ class AudioPlayerService: ObservableObject {
     private var periodicTimeObserver: Any?
     private var currentUrl: URL?
     private var isRemoteControlsConfigured = false
+    
+    // Logging service
+    private let loggingService = LoggingService.shared
+    
+    // Track previous time for seeking
+    private var previousSeekTime: Double = 0.0
 
     private init() {
         configureAudioSession()
@@ -184,10 +190,26 @@ class AudioPlayerService: ObservableObject {
                     self?.isPlaying = true
                     self?.isLoading = false
                     self?.updateNowPlayingInfo()
+                    
+                    // Log podcast play
+                    if let self = self {
+                        self.loggingService.logPodcastPlayed(
+                            podcastUrl: self.currentUrl?.absoluteString,
+                            duration: self.duration
+                        )
+                    }
                 case .paused:
                     self?.isPlaying = false
                     self?.isLoading = false
                     self?.updateNowPlayingInfo()
+                    
+                    // Log podcast pause
+                    if let self = self {
+                        self.loggingService.logPodcastPaused(
+                            currentTime: self.currentTime,
+                            totalDuration: self.duration
+                        )
+                    }
                 case .waitingToPlayAtSpecifiedRate:
                     if let error = avplayer.error {
                         self?.isPlaying = false
@@ -273,40 +295,33 @@ class AudioPlayerService: ObservableObject {
     }
     
     func skipForward(_ seconds: Double = 15.0) {
-        guard let player = player else { return }
-        
-        let currentTime = CMTimeGetSeconds(player.currentTime())
         let newTime = min(currentTime + seconds, duration)
-        let targetTime = CMTime(seconds: newTime, preferredTimescale: 600)
-        
-        player.seek(to: targetTime) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.updateNowPlayingInfo()
-            }
-        }
+        seek(to: newTime)
     }
     
     func skipBackward(_ seconds: Double = 15.0) {
-        guard let player = player else { return }
-        
-        let currentTime = CMTimeGetSeconds(player.currentTime())
         let newTime = max(currentTime - seconds, 0)
-        let targetTime = CMTime(seconds: newTime, preferredTimescale: 600)
-        
-        player.seek(to: targetTime) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.updateNowPlayingInfo()
-            }
-        }
+        seek(to: newTime)
     }
     
-    func seek(to timeInSeconds: Double) {
+    func seek(to time: TimeInterval) {
         guard let player = player else { return }
         
-        let targetTime = CMTime(seconds: timeInSeconds, preferredTimescale: 600)
-        player.seek(to: targetTime) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.updateNowPlayingInfo()
+        let cmTime = CMTime(seconds: time, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+        
+        // Log the seek action
+        loggingService.logPodcastSeeked(
+            fromTime: currentTime,
+            toTime: time
+        )
+        
+        player.seek(to: cmTime) { [weak self] finished in
+            if finished {
+                print("AudioPlayerService: Seek completed to \(time) seconds")
+                DispatchQueue.main.async {
+                    self?.currentTime = time
+                    self?.updateNowPlayingInfo()
+                }
             }
         }
     }

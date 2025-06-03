@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Secure Firebase Storage rules with user isolation
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // LOGGING SYSTEM - Users can only access their own log files
+    match /logging/{userId}.txt {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // AUDIO FILES - Users can only access their own audio files
+    match /audio/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // USER PROFILES - Users can only access their own profile images
+    match /user_profiles/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // SHARED PUBLIC FILES - Read-only access for authenticated users
+    match /public/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only server can write to public
+    }
+    
+    // DEFAULT DENY - Explicitly deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 

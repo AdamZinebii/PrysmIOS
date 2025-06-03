@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		843B4D862DEE31AA005C6196 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 843B4D852DEE31AA005C6196 /* FirebaseStorage */; };
 		84B1E2862DCFAFFF00AC2E46 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E2852DCFAFFF00AC2E46 /* FirebaseAnalytics */; };
 		84B1E2882DCFAFFF00AC2E46 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E2872DCFAFFF00AC2E46 /* FirebaseAuth */; };
 		84B1E2902DCFB70700AC2E46 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E28F2DCFB70700AC2E46 /* GoogleSignIn */; };
@@ -80,6 +81,7 @@
 				84B9002A2DD72A8800F653DF /* FirebaseMessaging in Frameworks */,
 				84B1E29A2DCFBEE600AC2E46 /* FirebaseCore in Frameworks */,
 				84B900282DD72A4700F653DF /* FirebaseFunctions in Frameworks */,
+				843B4D862DEE31AA005C6196 /* FirebaseStorage in Frameworks */,
 				84B1E29C2DCFBEE600AC2E46 /* FirebaseFirestore in Frameworks */,
 				84B1E2902DCFB70700AC2E46 /* GoogleSignIn in Frameworks */,
 			);
@@ -149,6 +151,7 @@
 				84B1E29B2DCFBEE600AC2E46 /* FirebaseFirestore */,
 				84B900272DD72A4700F653DF /* FirebaseFunctions */,
 				84B900292DD72A8800F653DF /* FirebaseMessaging */,
+				843B4D852DEE31AA005C6196 /* FirebaseStorage */,
 			);
 			productName = PrysmIOS;
 			productReference = 84B1E2532DCFAE4600AC2E46 /* Prysm.app */;
@@ -629,6 +632,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		843B4D852DEE31AA005C6196 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E2842DCFAFFF00AC2E46 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
 		84B1E2852DCFAFFF00AC2E46 /* FirebaseAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 84B1E2842DCFAFFF00AC2E46 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

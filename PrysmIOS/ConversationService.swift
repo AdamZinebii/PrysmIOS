@@ -196,15 +196,19 @@ class ConversationService: ObservableObject {
     func saveSchedulingPreferences(
         type: String, // "daily" or "weekly"
         day: String?, // "monday", "tuesday", etc. (or nil for daily)
-        hour: Int,
-        minute: Int,
+        localHour: Int, // User's local hour
+        localMinute: Int, // User's local minute
+        utcHour: Int, // Converted UTC hour
+        utcMinute: Int, // Converted UTC minute
+        userTimezone: String, // User's timezone identifier
         completion: @escaping (Result<SavePreferencesResponse, Error>) -> Void
     ) {
         print("🔍 [saveSchedulingPreferences] Function called with parameters:")
         print("  - type: \(type)")
         print("  - day: \(day ?? "nil")")
-        print("  - hour: \(hour)")
-        print("  - minute: \(minute)")
+        print("  - localTime: \(String(format: "%02d:%02d", localHour, localMinute))")
+        print("  - utcTime: \(String(format: "%02d:%02d", utcHour, utcMinute))")
+        print("  - userTimezone: \(userTimezone)")
         print("  - currentUserId: \(currentUserId ?? "nil")")
         
         guard let userId = currentUserId else {
@@ -213,15 +217,26 @@ class ConversationService: ObservableObject {
             return
         }
         
-        // Format time as HH:mm
-        let timeString = String(format: "%02d:%02d", hour, minute)
+        // Format time strings
+        let localTimeString = String(format: "%02d:%02d", localHour, localMinute)
+        let utcTimeString = String(format: "%02d:%02d", utcHour, utcMinute)
         
         var schedulingData: [String: Any] = [
             "type": type,
-            "time": timeString,
-            "hour": hour,
-            "minute": minute,
-            "updated_at": Date()
+            // Local time information (for display/user reference)
+            "local_time": localTimeString,
+            "local_hour": localHour,
+            "local_minute": localMinute,
+            "user_timezone": userTimezone,
+            // UTC time information (for server-side scheduling)
+            "utc_time": utcTimeString,
+            "utc_hour": utcHour,
+            "utc_minute": utcMinute,
+            "updated_at": Date(),
+            // Legacy fields for backward compatibility
+            "time": utcTimeString, // Use UTC for legacy 'time' field
+            "hour": utcHour, // Use UTC for legacy 'hour' field
+            "minute": utcMinute // Use UTC for legacy 'minute' field
         ]
         
         // Add day only if it's weekly
@@ -229,12 +244,13 @@ class ConversationService: ObservableObject {
             schedulingData["day"] = day
         }
         
-        print("🔍 [saveSchedulingPreferences] Saving directly to Firestore:")
+        print("🔍 [saveSchedulingPreferences] Saving timezone-aware data to Firestore:")
         print("  - User ID: \(userId)")
         print("  - Type: \(type)")
         print("  - Day: \(day ?? "None")")
-        print("  - Time: \(timeString)")
-        print("  - Full data: \(schedulingData)")
+        print("  - Local Time: \(localTimeString) (\(userTimezone))")
+        print("  - UTC Time: \(utcTimeString)")
+        print("  - Full data keys: \(schedulingData.keys.sorted())")
         
         // Save directly to Firestore
         let db = Firestore.firestore()
@@ -250,7 +266,7 @@ class ConversationService: ObservableObject {
                     print("❌ [saveSchedulingPreferences] Error domain: \(error._domain)")
                     completion(.failure(error))
                 } else {
-                    print("✅ [saveSchedulingPreferences] Successfully saved to Firestore!")
+                    print("✅ [saveSchedulingPreferences] Successfully saved timezone-aware data to Firestore!")
                     print("✅ [saveSchedulingPreferences] Document path: scheduling_preferences/\(userId)")
                     let response = SavePreferencesResponse(
                         success: true,
@@ -818,6 +834,56 @@ class ConversationService: ObservableObject {
         case "Español": return "es"
         case "العربية": return "ar"
         default: return "en"
+        }
+    }
+    
+    // MARK: - Timezone Helper Functions
+    
+    /// Converts UTC time to user's local time for display purposes
+    func convertUTCToLocalTime(utcHour: Int, utcMinute: Int, userTimezone: String) -> (hour: Int, minute: Int) {
+        guard let timeZone = TimeZone(identifier: userTimezone) else {
+            print("⚠️ Invalid timezone identifier: \(userTimezone), using current timezone")
+            return convertUTCToLocalTime(utcHour: utcHour, utcMinute: utcMinute, timeZone: TimeZone.current)
+        }
+        
+        return convertUTCToLocalTime(utcHour: utcHour, utcMinute: utcMinute, timeZone: timeZone)
+    }
+    
+    /// Converts UTC time to specified timezone
+    private func convertUTCToLocalTime(utcHour: Int, utcMinute: Int, timeZone: TimeZone) -> (hour: Int, minute: Int) {
+        // Create a date for today with the UTC time
+        let calendar = Calendar.current
+        var dateComponents = calendar.dateComponents([.year, .month, .day], from: Date())
+        dateComponents.hour = utcHour
+        dateComponents.minute = utcMinute
+        dateComponents.timeZone = TimeZone(identifier: "UTC")
+        
+        guard let utcDate = calendar.date(from: dateComponents) else {
+            print("⚠️ Failed to create UTC date, returning original time")
+            return (hour: utcHour, minute: utcMinute)
+        }
+        
+        // Convert to local timezone
+        let localFormatter = DateFormatter()
+        localFormatter.timeZone = timeZone
+        localFormatter.dateFormat = "HH:mm"
+        
+        let localTimeString = localFormatter.string(from: utcDate)
+        let localComponents = localTimeString.split(separator: ":").map { Int($0) ?? 0 }
+        
+        return (hour: localComponents[0], minute: localComponents[1])
+    }
+    
+    /// Get formatted display string for scheduling preferences
+    func getScheduleDisplayString(type: String, day: String?, localHour: Int, localMinute: Int, userTimezone: String) -> String {
+        let timeString = String(format: "%02d:%02d", localHour, localMinute)
+        let timezoneName = TimeZone(identifier: userTimezone)?.localizedName(for: .standard, locale: .current) ?? userTimezone
+        
+        if type == "weekly", let day = day {
+            let dayCapitalized = day.capitalized
+            return "\(dayCapitalized)s at \(timeString) (\(timezoneName))"
+        } else {
+            return "Daily at \(timeString) (\(timezoneName))"
         }
     }
 }
