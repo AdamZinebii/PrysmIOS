@@ -115,37 +115,97 @@ struct MarkdownText: View {
         var currentText = text
         
         while !currentText.isEmpty {
+            var foundFormatting = false
+            
+            // Find the next occurrence of any formatting
+            var nextTripleRange: Range<String.Index>?
+            var nextDoubleRange: Range<String.Index>?
+            
             // Check for triple asterisks first: ***text***
             if let tripleRange = currentText.range(of: "\\*\\*\\*([^*]+?)\\*\\*\\*", options: .regularExpression) {
-                // Add text before triple asterisks
-                let before = String(currentText[..<tripleRange.lowerBound])
-                if !before.isEmpty {
-                    segments.append(contentsOf: parseDoubleBold(before))
+                nextTripleRange = tripleRange
+            }
+            
+            // Check for double asterisks: **text** (but not part of triple)
+            if let doubleRange = currentText.range(of: "\\*\\*([^*]+?)\\*\\*", options: .regularExpression) {
+                // Make sure this double asterisk is not part of a triple asterisk
+                let doubleStart = doubleRange.lowerBound
+                let beforeDouble = currentText[..<doubleStart]
+                let afterDoubleStart = currentText.index(doubleRange.lowerBound, offsetBy: -1, limitedBy: currentText.startIndex)
+                let afterDoubleEnd = currentText.index(doubleRange.upperBound, offsetBy: 0, limitedBy: currentText.endIndex)
+                
+                var isPartOfTriple = false
+                if let beforeIdx = afterDoubleStart, beforeIdx >= currentText.startIndex {
+                    if currentText[beforeIdx] == "*" { isPartOfTriple = true }
+                }
+                if let afterIdx = afterDoubleEnd, afterIdx < currentText.endIndex {
+                    if currentText[afterIdx] == "*" { isPartOfTriple = true }
                 }
                 
-                // Add important text
+                if !isPartOfTriple {
+                    nextDoubleRange = doubleRange
+                }
+            }
+            
+            // Determine which formatting comes first
+            if let tripleRange = nextTripleRange, let doubleRange = nextDoubleRange {
+                // Both found, use the one that comes first
+                if tripleRange.lowerBound < doubleRange.lowerBound {
+                    // Process triple asterisk
+                    let before = String(currentText[..<tripleRange.lowerBound])
+                    if !before.isEmpty {
+                        segments.append(TextSegment(text: before))
+                    }
+                    
+                    let tripleText = String(currentText[tripleRange])
+                    let cleanText = tripleText.replacingOccurrences(of: "***", with: "")
+                    segments.append(TextSegment(text: cleanText, isImportant: true))
+                    
+                    currentText = String(currentText[tripleRange.upperBound...])
+                    foundFormatting = true
+                } else {
+                    // Process double asterisk
+                    let before = String(currentText[..<doubleRange.lowerBound])
+                    if !before.isEmpty {
+                        segments.append(TextSegment(text: before))
+                    }
+                    
+                    let doubleText = String(currentText[doubleRange])
+                    let cleanText = doubleText.replacingOccurrences(of: "**", with: "")
+                    segments.append(TextSegment(text: cleanText, isBold: true))
+                    
+                    currentText = String(currentText[doubleRange.upperBound...])
+                    foundFormatting = true
+                }
+            } else if let tripleRange = nextTripleRange {
+                // Only triple found
+                let before = String(currentText[..<tripleRange.lowerBound])
+                if !before.isEmpty {
+                    segments.append(TextSegment(text: before))
+                }
+                
                 let tripleText = String(currentText[tripleRange])
                 let cleanText = tripleText.replacingOccurrences(of: "***", with: "")
                 segments.append(TextSegment(text: cleanText, isImportant: true))
                 
                 currentText = String(currentText[tripleRange.upperBound...])
-            }
-            // Check for double asterisks: **text**
-            else if let doubleRange = currentText.range(of: "\\*\\*([^*]+?)\\*\\*", options: .regularExpression) {
-                // Add text before double asterisks
+                foundFormatting = true
+            } else if let doubleRange = nextDoubleRange {
+                // Only double found
                 let before = String(currentText[..<doubleRange.lowerBound])
                 if !before.isEmpty {
                     segments.append(TextSegment(text: before))
                 }
                 
-                // Add bold text
                 let doubleText = String(currentText[doubleRange])
                 let cleanText = doubleText.replacingOccurrences(of: "**", with: "")
                 segments.append(TextSegment(text: cleanText, isBold: true))
                 
                 currentText = String(currentText[doubleRange.upperBound...])
+                foundFormatting = true
             }
-            else {
+            
+            if !foundFormatting {
                 // No more formatting, add remaining text
                 segments.append(TextSegment(text: currentText))
                 break
@@ -201,13 +261,15 @@ struct TextSegment {
     let isImportant: Bool
     let isURL: Bool
     let url: String?
+    let isImageURL: Bool
     
-    init(text: String, isBold: Bool = false, isImportant: Bool = false, isURL: Bool = false, url: String? = nil) {
+    init(text: String, isBold: Bool = false, isImportant: Bool = false, isURL: Bool = false, url: String? = nil, isImageURL: Bool = false) {
         self.text = text
         self.isBold = isBold
         self.isImportant = isImportant
         self.isURL = isURL
         self.url = url
+        self.isImageURL = isImageURL
     }
 }
 
@@ -464,18 +526,34 @@ struct InlineFormattedText: View {
         var currentText = text
         
         while !currentText.isEmpty {
-            // Check for URL patterns first: <<URL>>
-            if let urlRange = currentText.range(of: "<<([^>]+)>>", options: .regularExpression) {
+            // Check for IMG URL patterns first: <<IMG:URL>>
+            if let imgUrlRange = currentText.range(of: "<<IMG:([^>]+)>>", options: .regularExpression) {
+                // Add text before the IMG URL
+                let beforeURL = String(currentText[..<imgUrlRange.lowerBound])
+                if !beforeURL.isEmpty {
+                    segments.append(contentsOf: parseInlineFormattingText(beforeURL))
+                }
+                
+                // Extract the IMG URL
+                let imgUrlText = String(currentText[imgUrlRange])
+                let cleanURL = imgUrlText.replacingOccurrences(of: "<<IMG:", with: "").replacingOccurrences(of: ">>", with: "")
+                segments.append(TextSegment(text: "", isURL: true, url: cleanURL, isImageURL: true))
+                
+                // Continue with the rest of the text
+                currentText = String(currentText[imgUrlRange.upperBound...])
+            }
+            // Check for regular URL patterns: <<URL>>
+            else if let urlRange = currentText.range(of: "<<([^>]+)>>", options: .regularExpression) {
                 // Add text before the URL
                 let beforeURL = String(currentText[..<urlRange.lowerBound])
                 if !beforeURL.isEmpty {
                     segments.append(contentsOf: parseInlineFormattingText(beforeURL))
                 }
                 
-                // Extract the URL
+                // Extract the regular URL
                 let urlText = String(currentText[urlRange])
                 let cleanURL = urlText.replacingOccurrences(of: "<<", with: "").replacingOccurrences(of: ">>", with: "")
-                segments.append(TextSegment(text: "", isURL: true, url: cleanURL))
+                segments.append(TextSegment(text: "", isURL: true, url: cleanURL, isImageURL: false))
                 
                 // Continue with the rest of the text
                 currentText = String(currentText[urlRange.upperBound...])
@@ -494,37 +572,97 @@ struct InlineFormattedText: View {
         var currentText = text
         
         while !currentText.isEmpty {
+            var foundFormatting = false
+            
+            // Find the next occurrence of any formatting
+            var nextTripleRange: Range<String.Index>?
+            var nextDoubleRange: Range<String.Index>?
+            
             // Check for triple asterisks first: ***text***
             if let tripleRange = currentText.range(of: "\\*\\*\\*([^*]+?)\\*\\*\\*", options: .regularExpression) {
-                // Add text before triple asterisks
-                let before = String(currentText[..<tripleRange.lowerBound])
-                if !before.isEmpty {
-                    segments.append(contentsOf: parseDoubleBold(before))
+                nextTripleRange = tripleRange
+            }
+            
+            // Check for double asterisks: **text** (but not part of triple)
+            if let doubleRange = currentText.range(of: "\\*\\*([^*]+?)\\*\\*", options: .regularExpression) {
+                // Make sure this double asterisk is not part of a triple asterisk
+                let doubleStart = doubleRange.lowerBound
+                let beforeDouble = currentText[..<doubleStart]
+                let afterDoubleStart = currentText.index(doubleRange.lowerBound, offsetBy: -1, limitedBy: currentText.startIndex)
+                let afterDoubleEnd = currentText.index(doubleRange.upperBound, offsetBy: 0, limitedBy: currentText.endIndex)
+                
+                var isPartOfTriple = false
+                if let beforeIdx = afterDoubleStart, beforeIdx >= currentText.startIndex {
+                    if currentText[beforeIdx] == "*" { isPartOfTriple = true }
+                }
+                if let afterIdx = afterDoubleEnd, afterIdx < currentText.endIndex {
+                    if currentText[afterIdx] == "*" { isPartOfTriple = true }
                 }
                 
-                // Add important text
+                if !isPartOfTriple {
+                    nextDoubleRange = doubleRange
+                }
+            }
+            
+            // Determine which formatting comes first
+            if let tripleRange = nextTripleRange, let doubleRange = nextDoubleRange {
+                // Both found, use the one that comes first
+                if tripleRange.lowerBound < doubleRange.lowerBound {
+                    // Process triple asterisk
+                    let before = String(currentText[..<tripleRange.lowerBound])
+                    if !before.isEmpty {
+                        segments.append(TextSegment(text: before))
+                    }
+                    
+                    let tripleText = String(currentText[tripleRange])
+                    let cleanText = tripleText.replacingOccurrences(of: "***", with: "")
+                    segments.append(TextSegment(text: cleanText, isImportant: true))
+                    
+                    currentText = String(currentText[tripleRange.upperBound...])
+                    foundFormatting = true
+                } else {
+                    // Process double asterisk
+                    let before = String(currentText[..<doubleRange.lowerBound])
+                    if !before.isEmpty {
+                        segments.append(TextSegment(text: before))
+                    }
+                    
+                    let doubleText = String(currentText[doubleRange])
+                    let cleanText = doubleText.replacingOccurrences(of: "**", with: "")
+                    segments.append(TextSegment(text: cleanText, isBold: true))
+                    
+                    currentText = String(currentText[doubleRange.upperBound...])
+                    foundFormatting = true
+                }
+            } else if let tripleRange = nextTripleRange {
+                // Only triple found
+                let before = String(currentText[..<tripleRange.lowerBound])
+                if !before.isEmpty {
+                    segments.append(TextSegment(text: before))
+                }
+                
                 let tripleText = String(currentText[tripleRange])
                 let cleanText = tripleText.replacingOccurrences(of: "***", with: "")
                 segments.append(TextSegment(text: cleanText, isImportant: true))
                 
                 currentText = String(currentText[tripleRange.upperBound...])
-            }
-            // Check for double asterisks: **text**
-            else if let doubleRange = currentText.range(of: "\\*\\*([^*]+?)\\*\\*", options: .regularExpression) {
-                // Add text before double asterisks
+                foundFormatting = true
+            } else if let doubleRange = nextDoubleRange {
+                // Only double found
                 let before = String(currentText[..<doubleRange.lowerBound])
                 if !before.isEmpty {
                     segments.append(TextSegment(text: before))
                 }
                 
-                // Add bold text
                 let doubleText = String(currentText[doubleRange])
                 let cleanText = doubleText.replacingOccurrences(of: "**", with: "")
                 segments.append(TextSegment(text: cleanText, isBold: true))
                 
                 currentText = String(currentText[doubleRange.upperBound...])
+                foundFormatting = true
             }
-            else {
+            
+            if !foundFormatting {
                 // No more formatting, add remaining text
                 segments.append(TextSegment(text: currentText))
                 break
@@ -612,44 +750,48 @@ struct FlowingTextViewWithThumbnails: View {
         }
     }
     
-    // Nouvelle fonction pour construire une seule vue Text concaténée
-    private func buildConcatenatedText(from segments: [TextSegment]) -> some View {
-        var result: Text?
-        
-        for segment in segments {
-            if segment.isURL, let urlString = segment.url, let url = URL(string: urlString) {
-                // Pour les URLs, on utilise encore un bouton séparé car on ne peut pas les inclure dans Text
-                // On pourrait améliorer cela plus tard avec des interactions personnalisées
-                continue
-            } else if !segment.text.isEmpty {
-                let segmentText: Text
-                
-                if segment.isImportant {
-                    segmentText = Text(segment.text)
-                        .fontWeight(.semibold)
-                        .font(font)
-                        .foregroundColor(color)
-                } else if segment.isBold {
-                    segmentText = Text(segment.text)
-                        .fontWeight(.bold)
-                        .font(font)
-                        .foregroundColor(color)
-                } else {
-                    segmentText = Text(segment.text)
-                        .fontWeight(.regular)
-                        .font(font)
-                        .foregroundColor(color)
-                }
-                
-                if result == nil {
-                    result = segmentText
-                } else {
-                    result = result! + segmentText
+    // Nouvelle fonction pour construire le texte avec des boutons inline pour tous les types d'URLs
+    private func buildTextWithInlineButtons(from segments: [TextSegment]) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+            ForEach(Array(segments.enumerated()), id: \.offset) { segmentIndex, segment in
+                if segment.isURL, let urlString = segment.url, let url = URL(string: urlString) {
+                    // Afficher un bouton favicon pour tous les types d'URLs
+                    InlineFaviconButton(url: url, font: font)
+                        .onAppear {
+                            if segment.isImageURL {
+                                print("🖼️ Rendering favicon for IMG URL: \(urlString)")
+                            } else {
+                                print("🔗 Rendering favicon for regular URL: \(urlString)")
+                            }
+                        }
+                } else if !segment.text.isEmpty {
+                    // Text normal - create Text view properly
+                    Group {
+                        if segment.isImportant {
+                            Text(segment.text)
+                                .fontWeight(.semibold)
+                                .font(font)
+                                .foregroundColor(color)
+                        } else if segment.isBold {
+                            Text(segment.text)
+                                .fontWeight(.bold)
+                                .font(font)
+                                .foregroundColor(color)
+                        } else {
+                            Text(segment.text)
+                                .fontWeight(.regular)
+                                .font(font)
+                                .foregroundColor(color)
+                        }
+                    }
                 }
             }
         }
-        
-        return result ?? Text("")
+    }
+    
+    // Fonction pour construire le texte simple (sans images)
+    private func buildConcatenatedText(from segments: [TextSegment]) -> some View {
+        return buildTextWithInlineButtons(from: segments)
     }
     
     // Version surchargée pour les éléments (avec URLs séparées)
@@ -657,18 +799,8 @@ struct FlowingTextViewWithThumbnails: View {
         HStack(alignment: .firstTextBaseline, spacing: 2) {
             ForEach(Array(elements.enumerated()), id: \.offset) { index, element in
                 if case .text(let textSegments) = element {
-                    buildConcatenatedText(from: textSegments)
-                }
-            }
-            
-            // Ajouter les URLs comme boutons séparés
-            ForEach(Array(elements.enumerated()), id: \.offset) { index, element in
-                if case .text(let textSegments) = element {
-                    ForEach(Array(textSegments.enumerated()), id: \.offset) { segmentIndex, segment in
-                        if segment.isURL, let urlString = segment.url, let url = URL(string: urlString) {
-                            InlineFaviconButton(url: url, font: font)
-                        }
-                    }
+                    // Build the text with inline buttons for all URL types
+                    buildTextWithInlineButtons(from: textSegments)
                 }
             }
         }
@@ -679,19 +811,25 @@ struct FlowingTextViewWithThumbnails: View {
         var currentTextSegments: [TextSegment] = []
         
         for segment in segments {
-            if segment.isURL {
+            if segment.isURL && segment.isImageURL {
                 // Add current text segments if any
                 if !currentTextSegments.isEmpty {
-                    currentTextSegments.append(segment) // Include the URL in the text
+                    currentTextSegments.append(segment) // Include the IMG URL in the text
                     elements.append(.text(currentTextSegments))
                     currentTextSegments = []
                 }
                 
-                // Add thumbnail element if we have the article
+                // Add thumbnail element only for IMG URLs
                 if let url = segment.url {
                     elements.append(.thumbnail(url))
+                    print("🖼️ Adding thumbnail for IMG URL: \(url)")
                 }
+            } else if segment.isURL && !segment.isImageURL {
+                // Regular URL - include in text but don't create thumbnail
+                currentTextSegments.append(segment)
+                print("🔗 Adding regular link (no thumbnail): \(segment.url ?? "unknown")")
             } else {
+                // Regular text segment
                 currentTextSegments.append(segment)
             }
         }
@@ -794,45 +932,45 @@ struct InlineArticleThumbnail: View {
                     Group {
                         switch imageLoadingState {
                         case .loading:
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(.systemGray5))
-                            .frame(width: 80, height: 80)
-                            .overlay(
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                    .tint(.gray)
-                            )
-                        case .success(let uiImage):
-                        Button(action: {
-                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                            impactFeedback.impactOccurred()
-                            showingFullScreenImage = true
-                        }) {
-                                Image(uiImage: uiImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.systemGray5))
                                 .frame(width: 80, height: 80)
-                                .clipped()
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                        .tint(.gray)
                                 )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                .fullScreenCover(isPresented: $showingFullScreenImage) {
-                    FullScreenImageView(
-                        imageUrl: thumbnailUrl,
-                        article: article,
-                        isPresented: $showingFullScreenImage
-                    )
+                        case .success(let uiImage):
+                            Button(action: {
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                                showingFullScreenImage = true
+                            }) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 80, height: 80)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .fullScreenCover(isPresented: $showingFullScreenImage) {
+                                FullScreenImageView(
+                                    imageUrl: thumbnailUrl,
+                                    article: article,
+                                    isPresented: $showingFullScreenImage
+                                )
                             }
                         case .failed(_):
                             // Si l'image ne peut pas être chargée, n'affiche rien
                             EmptyView()
                         }
-                }
-                .onAppear {
+                    }
+                    .onAppear {
                         loadImageWithEnhancedDetection(from: thumbnailUrl)
                     }
                 }
